@@ -1,0 +1,19 @@
+{
+  "name": "hello-audio-stream",
+  "version": "1.0.0",
+  "description": "Audio Stream Cache Client - Node.js Implementation",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "START": "node src/index.js",
+    "start:client": "node src/client/AudioClientApplication.js",
+    "start:server": "node src/server/AudioServerApplication.js"
+  },
+  "keywords": ["audio", "websocket", "mmap", "cache"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.19.0",
+    "commander": "^14.0.0"
+  }
+}

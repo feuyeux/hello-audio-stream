@@ -1,0 +1,32 @@
+{
+  "name": "hello-audio-stream",
+  "version": "1.0.0",
+  "description": "Audio Stream Cache Client - TypeScript Implementation",
+  "main": "dist/client/AudioClientApplication.js",
+  "scripts": {
+    "build": "tsc",
+    "START": "node dist/client/AudioClientApplication.js",
+    "start:server": "node dist/server/AudioServerApplication.js",
+    "dev": "ts-node src/client/AudioClientApplication.ts",
+    "dev:server": "ts-node src/server/AudioServerApplication.ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "audio",
+    "websocket",
+    "mmap",
+    "cache"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  }
+}

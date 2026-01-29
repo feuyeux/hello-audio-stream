@@ -1,0 +1,203 @@
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+target/
+.mvn/
+mvnw
+mvnw.cmd
+dependency-reduced-pom.xml
+cmake-build-debug/
+# Go
+/vendor
+*.exe
+*.test
+*.out
+go.sum
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+
+# Node.js / TypeScript
+node_modules/
+dist/
+.next/
+.nuxt/
+coverage/
+.nyc_output/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Rust
+target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# C++
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CMakeConfigureLog.yaml
+*.vcxproj
+*.sln
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.opensdf
+*.sdf
+
+# C#
+bin/
+obj/
+*.user
+*.suo
+*.cache
+project.lock.json
+project.fragment.lock.json
+project.assets.json
+project.vs.json
+
+# Kotlin
+build/
+.gradle/
+*.iml
+.idea/
+
+# Swift
+.build/
+*.swiftpm/
+.swiftpm/
+*.xcworkspace
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+# Dart
+.dart_tool/
+.packages
+pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+.dart_tool/
+
+# PHP
+vendor/
+composer.lock
+.phpunit.result.cache
+.php_cs.cache
+.php-cs-fixer.cache
+
+# General
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+*.swp
+*~
+*.orig
+*.drawio.bkp
+
+# IDE and temporary directories
+.codebuddy/
+.trae/
+.idea/
+.vscode/
+.kiro/
+*.iml
+.cache/
+
+# Logs
+logs/
+*.log
+
+# Output
+output/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+
+*.test.*
+test-data/
+fixtures/
+
+# Additional build artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# Package manager locks (keep language-specific ones)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Temporary directories
+tmp/
+temp/
+*.tmpdir/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+*.lcov
+coverage.xml
+test-results/
+
+# OS specific
+.Trashes
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+desktop.ini
+
+# Additional IDE
+*.sublime-project
+*.sublime-workspace
+.fleet/
+*.code-workspace
+
+# Windows batch files
+*.bat
+*.cmd
+
+# Cache files
+cache/
+*.cache
+
+# C++ library dependencies (git submodules/embedded repos)
+hello-cpp/lib/*/
+hello-swift/Sources/Lib/

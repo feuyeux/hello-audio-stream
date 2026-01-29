@@ -1,0 +1,18 @@
+{
+    "name": "hello-audio-stream/php",
+    "description": "Audio file transfer client using WebSocket",
+    "type": "project",
+    "require": {
+        "php": ">=8.3",
+        "textalk/websocket": "^1.6",
+        "cboden/ratchet": "^0.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "AudioStreamClient\\": "src/Client/",
+            "AudioStreamServer\\": "src/Server/"
+        },
+        "classmap": ["src/Logger.php", "src/CliParser.php"]
+    },
+    "bin": ["audio_stream_client.php"]
+}
