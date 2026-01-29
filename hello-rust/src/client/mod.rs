@@ -1,4 +1,3 @@
-pub mod audio_client_application;
 pub mod chunk_manager;
 pub mod download_manager;
 pub mod file_manager;

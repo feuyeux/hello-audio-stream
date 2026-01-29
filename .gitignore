@@ -201,3 +201,11 @@ cache/
 # C++ library dependencies (git submodules/embedded repos)
 hello-cpp/lib/*/
 hello-swift/Sources/Lib/
+hello-cpp/scripts/lib/
+
+# Build artifacts
+hello-dart/audio_stream_client
+hello-dart/audio_stream_server
+hello-go/audio_stream_client_linux
+hello-go/audio_stream_server
+hello-go/audio_stream_client

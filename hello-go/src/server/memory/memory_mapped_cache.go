@@ -6,6 +6,15 @@ import (
 	"sync"
 )
 
+// Configuration constants for memory-mapped cache
+// Follows the unified mmap implementation specification v2.0.0
+const (
+	DefaultPageSize       int64 = 64 * 1024 * 1024           // 64MB
+	MaxCacheSize          int64 = 8 * 1024 * 1024 * 1024     // 8GB
+	SegmentSize           int64 = 1 * 1024 * 1024 * 1024     // 1GB per segment
+	BatchOperationLimit   int   = 1000                       // Max batch operations
+)
+
 // MemoryMappedCache manages memory-mapped file operations
 // Note: For Windows compatibility, we use file I/O instead of platform-specific mmap
 // Thread-safe with RWMutex for concurrent access
@@ -193,6 +202,22 @@ func (mmc *MemoryMappedCache) resizeInternal(newSize int64) error {
 	}
 
 	mmc.size = newSize
+	return nil
+}
+
+// Flush forces all data to be written to disk
+func (mmc *MemoryMappedCache) Flush() error {
+	mmc.mu.Lock()
+	defer mmc.mu.Unlock()
+
+	if !mmc.isOpen || mmc.file == nil {
+		return fmt.Errorf("file not open for flush: %s", mmc.path)
+	}
+
+	if err := mmc.file.Sync(); err != nil {
+		return fmt.Errorf("failed to sync file: %w", err)
+	}
+
 	return nil
 }
 

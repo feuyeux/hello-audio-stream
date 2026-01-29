@@ -12,8 +12,11 @@ namespace AudioStreamServer\Memory;
 
 use AudioStreamClient\Logger;
 
+// Configuration constants - follows unified mmap specification v2.0.0
 const DEFAULT_PAGE_SIZE = 64 * 1024 * 1024; // 64MB
-const MAX_CACHE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
+const MAX_CACHE_SIZE = 8 * 1024 * 1024 * 1024; // 8GB
+const SEGMENT_SIZE = 1 * 1024 * 1024 * 1024; // 1GB per segment
+const BATCH_OPERATION_LIMIT = 1000; // Max batch operations
 
 /**
  * Memory-mapped cache implementation.
@@ -23,7 +26,7 @@ class MemoryMappedCache
     private string $path;
     private $fileHandle;
     private int $size;
-    private bool $isOpen;
+    private bool $_isOpen;
 
     /**
      * Create a new MemoryMappedCache.
@@ -35,7 +38,7 @@ class MemoryMappedCache
         $this->path = $filePath;
         $this->fileHandle = null;
         $this->size = 0;
-        $this->isOpen = false;
+        $this->_isOpen = false;
     }
 
     /**
@@ -68,7 +71,7 @@ class MemoryMappedCache
             $this->size = 0;
         }
 
-        $this->isOpen = true;
+        $this->_isOpen = true;
         Logger::debug("Created mmap file: {$filePath} with size: {$initialSize}");
         return true;
     }
@@ -93,7 +96,7 @@ class MemoryMappedCache
         }
 
         $this->size = filesize($filePath);
-        $this->isOpen = true;
+        $this->_isOpen = true;
         Logger::debug("Opened mmap file: {$filePath} with size: {$this->size}");
         return true;
     }
@@ -103,10 +106,10 @@ class MemoryMappedCache
      */
     public function close(): void
     {
-        if ($this->isOpen && $this->fileHandle !== null) {
+        if ($this->_isOpen && $this->fileHandle !== null) {
             fclose($this->fileHandle);
             $this->fileHandle = null;
-            $this->isOpen = false;
+            $this->_isOpen = false;
         }
     }
 
@@ -119,7 +122,7 @@ class MemoryMappedCache
      */
     public function write(int $offset, string $data): int
     {
-        if (!$this->isOpen || $this->fileHandle === null) {
+        if (!$this->_isOpen || $this->fileHandle === null) {
             $initialSize = $offset + strlen($data);
             if (!$this->create($this->path, $initialSize)) {
                 return 0;
@@ -156,7 +159,7 @@ class MemoryMappedCache
      */
     public function read(int $offset, int $length): string
     {
-        if (!$this->isOpen || $this->fileHandle === null) {
+        if (!$this->_isOpen || $this->fileHandle === null) {
             if (!$this->open($this->path)) {
                 Logger::error("Failed to open file for reading: {$this->path}");
                 return '';
@@ -207,9 +210,9 @@ class MemoryMappedCache
      *
      * @return bool True if open
      */
-    public function getIsOpen(): bool
+    public function isOpen(): bool
     {
-        return $this->isOpen;
+        return $this->_isOpen;
     }
 
     /**
@@ -218,9 +221,9 @@ class MemoryMappedCache
      * @param int $newSize New size in bytes
      * @return bool True if successful
      */
-    private function resize(int $newSize): bool
+    public function resize(int $newSize): bool
     {
-        if (!$this->isOpen) {
+        if (!$this->_isOpen) {
             Logger::error("File not open for resize: {$this->path}");
             return false;
         }
@@ -245,6 +248,23 @@ class MemoryMappedCache
     }
 
     /**
+     * Flush all data to disk.
+     *
+     * @return bool True if successful
+     */
+    public function flush(): bool
+    {
+        if (!$this->_isOpen || $this->fileHandle === null) {
+            Logger::warning("File not open for flush: {$this->path}");
+            return false;
+        }
+
+        fflush($this->fileHandle);
+        Logger::debug("Flushed file: {$this->path}");
+        return true;
+    }
+
+    /**
      * Finalize the file to its final size.
      *
      * @param int $finalSize Final size in bytes
@@ -252,7 +272,7 @@ class MemoryMappedCache
      */
     public function finalize(int $finalSize): bool
     {
-        if (!$this->isOpen) {
+        if (!$this->_isOpen) {
             Logger::warning("File not open for finalization: {$this->path}");
             return false;
         }

@@ -14,8 +14,11 @@ namespace AudioStreamServer.Memory;
 /// </summary>
 public class MemoryMappedCache
 {
+    // Configuration constants - follows unified mmap specification v2.0.0
     private const long DefaultPageSize = 64L * 1024 * 1024; // 64MB
-    private const long MaxCacheSize = 2L * 1024 * 1024 * 1024; // 2GB
+    private const long MaxCacheSize = 8L * 1024 * 1024 * 1024; // 8GB
+    private const long SegmentSize = 1L * 1024 * 1024 * 1024; // 1GB per segment
+    private const int BatchOperationLimit = 1000; // Max batch operations
 
     public string Path { get; }
     private FileStream? _fileStream;
@@ -272,6 +275,22 @@ public class MemoryMappedCache
     /// <summary>
     /// Resize the file to a new size.
     /// </summary>
+    public bool Resize(long newSize)
+    {
+        _rwLock.EnterWriteLock();
+        try
+        {
+            return ResizeInternal(newSize);
+        }
+        finally
+        {
+            _rwLock.ExitWriteLock();
+        }
+    }
+
+    /// <summary>
+    /// Resize the file to a new size (internal, no lock).
+    /// </summary>
     private bool ResizeInternal(long newSize)
     {
         if (!_isOpen)
@@ -295,6 +314,30 @@ public class MemoryMappedCache
         _size = newSize;
         Logger.Instance.Debug($"Resized file {Path} to {newSize} bytes");
         return true;
+    }
+
+    /// <summary>
+    /// Flush all data to disk.
+    /// </summary>
+    public bool Flush()
+    {
+        _rwLock.EnterWriteLock();
+        try
+        {
+            if (!_isOpen || _fileStream == null)
+            {
+                Logger.Instance.Warning($"File not open for flush: {Path}");
+                return false;
+            }
+
+            _fileStream.Flush();
+            Logger.Instance.Debug($"Flushed file: {Path}");
+            return true;
+        }
+        finally
+        {
+            _rwLock.ExitWriteLock();
+        }
     }
 
     /// <summary>

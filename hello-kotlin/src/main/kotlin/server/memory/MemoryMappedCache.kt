@@ -14,8 +14,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
+// Configuration constants - follows unified mmap specification v2.0.0
 const val DEFAULT_PAGE_SIZE = 64L * 1024 * 1024 // 64MB
-const val MAX_CACHE_SIZE = 2L * 1024 * 1024 * 1024 // 2GB
+const val MAX_CACHE_SIZE = 8L * 1024 * 1024 * 1024 // 8GB
+const val SEGMENT_SIZE = 1L * 1024 * 1024 * 1024 // 1GB per segment
+const val BATCH_OPERATION_LIMIT = 1000 // Max batch operations
 
 /**
  * Memory-mapped cache implementation using Java's MappedByteBuffer.
@@ -26,7 +29,7 @@ class MemoryMappedCache(private val path: String) {
     private var channel: FileChannel? = null
     private var mappedBuffer: MappedByteBuffer? = null
     private var size: Long = 0
-    private var isOpen: Boolean = false
+    private var _isOpen: Boolean = false
     private val rwLock = ReentrantReadWriteLock()
 
     /**
@@ -55,7 +58,7 @@ class MemoryMappedCache(private val path: String) {
                 size = 0
             }
 
-            isOpen = true
+            _isOpen = true
             Logger.debug("Created mmap file: $path with size: $initialSize")
             true
         } catch (e: Exception) {
@@ -105,13 +108,13 @@ class MemoryMappedCache(private val path: String) {
      * Internal close without lock (called from within locked methods).
      */
     private fun closeInternal() {
-        if (isOpen) {
+        if (_isOpen) {
             try {
                 unmapFile()
             } catch (e: Exception) {
                 Logger.error("Error closing file $path: ${e.message}")
             } finally {
-                isOpen = false
+                _isOpen = false
             }
         }
     }
@@ -122,7 +125,7 @@ class MemoryMappedCache(private val path: String) {
     fun write(offset: Long, data: ByteArray): Int = rwLock.write {
         try {
             // If file is not open, create it
-            if (!isOpen) {
+            if (!_isOpen) {
                 val initialSize = offset + data.size
                 if (!createInternal(initialSize)) {
                     return@write 0
@@ -155,7 +158,7 @@ class MemoryMappedCache(private val path: String) {
      */
     fun read(offset: Long, length: Int): ByteArray = rwLock.write {
         try {
-            if (!isOpen || mappedBuffer == null) {
+            if (!_isOpen || mappedBuffer == null) {
                 if (!openInternal()) {
                     Logger.error("Failed to open file for reading: $path")
                     return@write byteArrayOf()
@@ -189,14 +192,21 @@ class MemoryMappedCache(private val path: String) {
     /**
      * Check if the file is open.
      */
-    fun getIsOpen(): Boolean = rwLock.read { isOpen }
+    fun isOpen(): Boolean = rwLock.read { _isOpen }
+
+    /**
+     * Resize the file to a new size.
+     */
+    fun resize(newSize: Long): Boolean = rwLock.write {
+        resizeInternal(newSize)
+    }
 
     /**
      * Resize the file to a new size (internal, no lock).
      */
     private fun resizeInternal(newSize: Long): Boolean {
         return try {
-            if (!isOpen) {
+            if (!_isOpen) {
                 Logger.error("File not open for resize: $path")
                 return false
             }
@@ -231,11 +241,30 @@ class MemoryMappedCache(private val path: String) {
     }
 
     /**
+     * Flush all mapped data to disk.
+     */
+    fun flush(): Boolean = rwLock.write {
+        try {
+            if (!_isOpen) {
+                Logger.warning("File not open for flush: $path")
+                return@write false
+            }
+
+            mappedBuffer?.force()
+            Logger.debug("Flushed file: $path")
+            true
+        } catch (e: Exception) {
+            Logger.error("Error flushing file $path: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * Finalize the file to its final size.
      */
     fun finalize(finalSize: Long): Boolean = rwLock.write {
         try {
-            if (!isOpen) {
+            if (!_isOpen) {
                 Logger.warning("File not open for finalization: $path")
                 return@write false
             }
@@ -282,7 +311,7 @@ class MemoryMappedCache(private val path: String) {
                 size = 0
             }
 
-            isOpen = true
+            _isOpen = true
             Logger.debug("Created mmap file: $path with size: $initialSize")
             true
         } catch (e: Exception) {
@@ -311,7 +340,7 @@ class MemoryMappedCache(private val path: String) {
                 mapFile()
             }
 
-            isOpen = true
+            _isOpen = true
             Logger.debug("Opened mmap file: $path with size: $size")
             true
         } catch (e: Exception) {

@@ -26,7 +26,7 @@ set(CLIENT_HEADERS
     include/util/performance_monitor.h
     include/util/stream_id_generator.h
     include/util/error_handler.h
-    include/common_types.h
+    ../include/common_types.h
 )
 
 # Create client executable
@@ -63,6 +63,7 @@ endif()
 # Include directories
 target_include_directories(audio_stream_client PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include
 )
 
 if(OpenSSL_FOUND)

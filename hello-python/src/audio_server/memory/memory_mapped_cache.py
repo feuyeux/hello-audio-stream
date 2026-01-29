@@ -6,8 +6,11 @@ import threading
 from typing import Optional, IO
 from loguru import logger
 
-DEFAULT_PAGE_SIZE = 64 * 1024 * 1024
-MAX_CACHE_SIZE = 2 * 1024 * 1024 * 1024
+# Configuration constants - follows unified mmap specification v2.0.0
+DEFAULT_PAGE_SIZE = 64 * 1024 * 1024  # 64MB
+MAX_CACHE_SIZE = 8 * 1024 * 1024 * 1024  # 8GB
+SEGMENT_SIZE = 1 * 1024 * 1024 * 1024  # 1GB per segment
+BATCH_OPERATION_LIMIT = 1000  # Max batch operations
 
 
 class MemoryMappedCache:
@@ -191,6 +194,23 @@ class MemoryMappedCache:
         except Exception as e:
             logger.error(f"Error resizing file {self.path}: {e}")
             return False
+
+    def flush(self) -> bool:
+        """Flush all mapped data to disk."""
+        with self._lock:
+            try:
+                if not self.is_open:
+                    logger.warning(f"File not open for flush: {self.path}")
+                    return False
+
+                if self.mmap is not None:
+                    self.mmap.flush()
+
+                logger.debug(f"Flushed file: {self.path}")
+                return True
+            except Exception as e:
+                logger.error(f"Error flushing file {self.path}: {e}")
+                return False
 
     def finalize(self, final_size: int) -> bool:
         with self._lock:

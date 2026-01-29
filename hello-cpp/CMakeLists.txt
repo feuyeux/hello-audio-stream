@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(AudioStreamCache VERSION 1.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -27,14 +27,15 @@ endif()
 
 include(FetchContent)
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/lib")
+if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/lib")
     set(USE_LOCAL_DEPS TRUE)
-    message(STATUS "Using local dependencies from lib/")
+    set(LOCAL_DEPS_PATH "${CMAKE_SOURCE_DIR}/scripts/lib")
+    message(STATUS "Using local dependencies from scripts/lib/")
 endif()
 
-if(USE_LOCAL_DEPS AND EXISTS "${CMAKE_SOURCE_DIR}/lib/asio")
-    include_directories(${CMAKE_SOURCE_DIR}/lib/asio/asio/include)
-    set(asio_SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/asio)
+if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/asio")
+    include_directories(${LOCAL_DEPS_PATH}/asio/asio/include)
+    set(asio_SOURCE_DIR ${LOCAL_DEPS_PATH}/asio)
 else()
     FetchContent_Declare(asio
         GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
@@ -46,8 +47,8 @@ else()
 endif()
 add_compile_definitions(ASIO_STANDALONE)
 
-if(USE_LOCAL_DEPS AND EXISTS "${CMAKE_SOURCE_DIR}/lib/websocketpp")
-    set(websocketpp_SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/websocketpp)
+if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/websocketpp")
+    set(websocketpp_SOURCE_DIR ${LOCAL_DEPS_PATH}/websocketpp)
     set(BUILD_TESTS_SAVED ${BUILD_TESTS})
     set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -56,7 +57,7 @@ if(USE_LOCAL_DEPS AND EXISTS "${CMAKE_SOURCE_DIR}/lib/websocketpp")
 else()
     FetchContent_Declare(websocketpp
         GIT_REPOSITORY https://github.com/zaphoyd/websocketpp.git
-        GIT_TAG 0.8.2
+        GIT_TAG master
         GIT_SHALLOW TRUE
     )
     set(BUILD_TESTS_SAVED ${BUILD_TESTS})
@@ -66,8 +67,8 @@ else()
     set(BUILD_TESTS ${BUILD_TESTS_SAVED} CACHE BOOL "" FORCE)
 endif()
 
-if(USE_LOCAL_DEPS AND EXISTS "${CMAKE_SOURCE_DIR}/lib/spdlog")
-    set(spdlog_SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/spdlog)
+if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/spdlog")
+    set(spdlog_SOURCE_DIR ${LOCAL_DEPS_PATH}/spdlog)
     add_subdirectory(${spdlog_SOURCE_DIR} ${CMAKE_BINARY_DIR}/spdlog-build EXCLUDE_FROM_ALL)
 else()
     FetchContent_Declare(spdlog
@@ -78,25 +79,29 @@ else()
     FetchContent_MakeAvailable(spdlog)
 endif()
 
-if(USE_LOCAL_DEPS AND EXISTS "${CMAKE_SOURCE_DIR}/lib/nlohmann_json")
-    set(nlohmann_json_SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/nlohmann_json)
+if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/nlohmann_json")
+    set(nlohmann_json_SOURCE_DIR ${LOCAL_DEPS_PATH}/nlohmann_json)
     add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
     target_include_directories(nlohmann_json::nlohmann_json INTERFACE ${nlohmann_json_SOURCE_DIR}/include)
 else()
-    FetchContent_Declare(nlohmann_json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG v3.11.3
-        GIT_SHALLOW TRUE
-        OVERRIDE
-    )
-    set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
-    set(JSON_Install OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(nlohmann_json)
+    # Try to find system-installed nlohmann_json first
+    find_package(nlohmann_json 3.11 QUIET)
+    if(NOT nlohmann_json_FOUND)
+        FetchContent_Declare(nlohmann_json
+            GIT_REPOSITORY https://github.com/nlohmann/json.git
+            GIT_TAG v3.11.3
+            GIT_SHALLOW TRUE
+            OVERRIDE
+        )
+        set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+        set(JSON_Install OFF CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(nlohmann_json)
+    endif()
 endif()
 
 if(BUILD_TESTS)
-    if(USE_LOCAL_DEPS AND EXISTS "${CMAKE_SOURCE_DIR}/lib/googletest")
-        set(googletest_SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/googletest)
+    if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/googletest")
+        set(googletest_SOURCE_DIR ${LOCAL_DEPS_PATH}/googletest)
         set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
         add_subdirectory(${googletest_SOURCE_DIR} ${CMAKE_BINARY_DIR}/googletest-build EXCLUDE_FROM_ALL)
     else()
@@ -108,8 +113,8 @@ if(BUILD_TESTS)
         FetchContent_MakeAvailable(googletest)
     endif()
 
-    if(USE_LOCAL_DEPS AND EXISTS "${CMAKE_SOURCE_DIR}/lib/rapidcheck")
-        set(rapidcheck_SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/rapidcheck)
+    if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/rapidcheck")
+        set(rapidcheck_SOURCE_DIR ${LOCAL_DEPS_PATH}/rapidcheck)
         set(RC_ENABLE_GTEST ON CACHE BOOL "Enable RapidCheck GTest integration")
         add_subdirectory(${rapidcheck_SOURCE_DIR} ${CMAKE_BINARY_DIR}/rapidcheck-build EXCLUDE_FROM_ALL)
     else()
@@ -133,7 +138,7 @@ include_directories(
     ${spdlog_SOURCE_DIR}/include
 )
 
-if(USE_LOCAL_DEPS AND EXISTS "${CMAKE_SOURCE_DIR}/lib/nlohmann_json")
+if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/nlohmann_json")
     include_directories(${nlohmann_json_SOURCE_DIR}/include)
 endif()
 

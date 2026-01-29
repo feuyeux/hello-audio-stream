@@ -42,7 +42,7 @@ class AudioWebSocketServer {
   /// Start the WebSocket server.
   Future<void> start() async {
     // Create a WebSocket handler that handles all messages
-    final wsHandler = webSocketHandler((WebSocketChannel ws) {
+    final wsHandler = webSocketHandler((WebSocketChannel ws, String? protocol) {
       Logger.info('Client connected');
 
       // Handle messages from this client

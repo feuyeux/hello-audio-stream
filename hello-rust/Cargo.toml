@@ -3,6 +3,10 @@ name = "hello-audio-stream"
 version = "1.0.0"
 edition = "2021"
 
+[lib]
+name = "hello_audio_stream"
+path = "src/lib.rs"
+
 [dependencies]
 tokio = { version = "1.44", features = ["full"] }
 tokio-tungstenite = "0.28.0"
@@ -23,8 +27,8 @@ base64 = "0.22"
 
 [[bin]]
 name = "audio_stream_client"
-path = "src/bin/client.rs"
+path = "src/bin/audio_client_application.rs"
 
 [[bin]]
 name = "audio_stream_server"
-path = "src/bin/server.rs"
+path = "src/bin/audio_server_application.rs"

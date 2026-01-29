@@ -10,15 +10,18 @@
 import AudioStreamCommon
 import Foundation
 
+// Configuration constants - follows unified mmap specification v2.0.0
 let DEFAULT_PAGE_SIZE: Int64 = 64 * 1024 * 1024  // 64MB
-let MAX_CACHE_SIZE: Int64 = 2 * 1024 * 1024 * 1024  // 2GB
+let MAX_CACHE_SIZE: Int64 = 8 * 1024 * 1024 * 1024  // 8GB
+let SEGMENT_SIZE: Int64 = 1 * 1024 * 1024 * 1024  // 1GB per segment
+let BATCH_OPERATION_LIMIT: Int = 1000  // Max batch operations
 
 /// Memory-mapped cache implementation.
 class MemoryMappedCache {
     let path: String
     private var fileHandle: FileHandle?
     private var size: Int64 = 0
-    private var isOpen = false
+    private var _isOpen = false
     private let rwLock = NSLock()
 
     /// Create a new MemoryMappedCache.
@@ -66,7 +69,7 @@ class MemoryMappedCache {
             self.size = 0
         }
 
-        self.isOpen = true
+        self._isOpen = true
         Logger.debug("Created mmap file: \(filePath) with size: \(initialSize)")
         return true
     }
@@ -94,7 +97,7 @@ class MemoryMappedCache {
 
         self.fileHandle = handle
         self.size = fileSize
-        self.isOpen = true
+        self._isOpen = true
         Logger.debug("Opened mmap file: \(filePath) with size: \(fileSize)")
         return true
     }
@@ -107,10 +110,10 @@ class MemoryMappedCache {
     }
 
     private func closeInternal() {
-        if isOpen, let handle = fileHandle {
+        if _isOpen, let handle = fileHandle {
             try? handle.close()
             fileHandle = nil
-            isOpen = false
+            _isOpen = false
         }
     }
 
@@ -119,7 +122,7 @@ class MemoryMappedCache {
         rwLock.lock()
         defer { rwLock.unlock() }
 
-        if !isOpen || fileHandle == nil {
+        if !_isOpen || fileHandle == nil {
             let initialSize = offset + Int64(data.count)
             if !createInternal(filePath: path, initialSize: initialSize) {
                 return 0
@@ -162,7 +165,7 @@ class MemoryMappedCache {
         rwLock.lock()
         defer { rwLock.unlock() }
 
-        if !isOpen || fileHandle == nil {
+        if !_isOpen || fileHandle == nil {
             if !openInternal(filePath: path) {
                 Logger.error("Failed to open file for reading: \(path)")
                 return Data()
@@ -208,15 +211,22 @@ class MemoryMappedCache {
     }
 
     /// Check if the file is open.
-    func getIsOpen() -> Bool {
+    func isOpen() -> Bool {
         rwLock.lock()
         defer { rwLock.unlock() }
-        return isOpen
+        return _isOpen
+    }
+
+    /// Resize the file to a new size.
+    func resize(newSize: Int64) -> Bool {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+        return resizeInternal(newSize: newSize)
     }
 
     /// Resize the file to a new size (internal version without lock).
     private func resizeInternal(newSize: Int64) -> Bool {
-        guard isOpen, let handle = fileHandle else {
+        guard _isOpen, let handle = fileHandle else {
             Logger.error("File not open for resize: \(path)")
             return false
         }
@@ -246,12 +256,32 @@ class MemoryMappedCache {
         return true
     }
 
+    /// Flush all data to disk.
+    func flush() -> Bool {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+
+        guard _isOpen, let fileHandle = handle else {
+            Logger.warn("File not open for flush: \(path)")
+            return false
+        }
+
+        do {
+            try fileHandle.synchronize()
+            Logger.debug("Flushed file: \(path)")
+            return true
+        } catch {
+            Logger.error("Error flushing file \(path): \(error)")
+            return false
+        }
+    }
+
     /// Finalize the file to its final size.
     func finalize(finalSize: Int64) -> Bool {
         rwLock.lock()
         defer { rwLock.unlock() }
 
-        guard isOpen else {
+        guard _isOpen else {
             Logger.warn("File not open for finalization: \(path)")
             return false
         }

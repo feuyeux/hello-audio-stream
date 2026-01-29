@@ -186,6 +186,23 @@ class MmapCache {
     }
   }
 
+  /// Flush all data to disk.
+  Future<bool> flush() async {
+    try {
+      if (!_isOpen) {
+        _logger.warning('File not open for flush: $_path');
+        return false;
+      }
+
+      await _file?.flush();
+      _logger.info('Flushed file: $_path');
+      return true;
+    } catch (e) {
+      _logger.severe('Error flushing file $_path: $e');
+      return false;
+    }
+  }
+
   Future<bool> finalize(int finalSize) async {
     try {
       if (!_isOpen) {

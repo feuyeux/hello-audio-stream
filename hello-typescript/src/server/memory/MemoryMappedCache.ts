@@ -2,9 +2,17 @@
  * Memory-mapped cache for audio streaming.
  * Provides file-based caching with memory mapping.
  * Matches C++ MemoryMappedCache and Java MemoryMappedCache.
+ * Follows the unified mmap implementation specification v2.0.0.
  */
 
 import * as fs from "fs";
+import * as logger from "../../logger";
+
+// Configuration constants
+export const DEFAULT_PAGE_SIZE = 64 * 1024 * 1024; // 64MB
+export const MAX_CACHE_SIZE = 8 * 1024 * 1024 * 1024; // 8GB
+export const SEGMENT_SIZE = 1 * 1024 * 1024 * 1024; // 1GB per segment
+export const BATCH_OPERATION_LIMIT = 1000; // Max batch operations
 
 export class MemoryMappedCache {
   private path: string;
@@ -39,7 +47,7 @@ export class MemoryMappedCache {
       this.isOpenFlag = true;
       return true;
     } catch (error) {
-      console.error(`Error creating file ${this.path}:`, error);
+      logger.error(`Error creating file ${this.path}: ${(error as Error).message}`);
       return false;
     }
   }
@@ -47,7 +55,7 @@ export class MemoryMappedCache {
   open(): boolean {
     try {
       if (!fs.existsSync(this.path)) {
-        console.error(`File does not exist: ${this.path}`);
+        logger.error(`File does not exist: ${this.path}`);
         return false;
       }
 
@@ -57,7 +65,7 @@ export class MemoryMappedCache {
       this.isOpenFlag = true;
       return true;
     } catch (error) {
-      console.error(`Error opening file ${this.path}:`, error);
+      logger.error(`Error opening file ${this.path}: ${(error as Error).message}`);
       return false;
     }
   }
@@ -82,7 +90,7 @@ export class MemoryMappedCache {
       const requiredSize = offset + data.length;
       if (requiredSize > this.size) {
         if (!this.resize(requiredSize)) {
-          console.error("Failed to resize file for write operation");
+          logger.error("Failed to resize file for write operation");
           return 0;
         }
       }
@@ -94,7 +102,7 @@ export class MemoryMappedCache {
       const written = fs.writeSync(this.fd, data, 0, data.length, offset);
       return written;
     } catch (error) {
-      console.error(`Error writing to file ${this.path}:`, error);
+      logger.error(`Error writing to file ${this.path}: ${(error as Error).message}`);
       return 0;
     }
   }
@@ -103,7 +111,7 @@ export class MemoryMappedCache {
     try {
       if (!this.isOpenFlag) {
         if (!this.open()) {
-          console.error(`Failed to open file for reading: ${this.path}`);
+          logger.error(`Failed to open file for reading: ${this.path}`);
           return Buffer.alloc(0);
         }
       }
@@ -122,7 +130,7 @@ export class MemoryMappedCache {
 
       return buffer.slice(0, bytesRead);
     } catch (error) {
-      console.error(`Error reading from file ${this.path}:`, error);
+      logger.error(`Error reading from file ${this.path}: ${(error as Error).message}`);
       return Buffer.alloc(0);
     }
   }
@@ -130,7 +138,7 @@ export class MemoryMappedCache {
   resize(newSize: number): boolean {
     try {
       if (!this.isOpenFlag || this.fd === null) {
-        console.error(`File not open for resize: ${this.path}`);
+        logger.error(`File not open for resize: ${this.path}`);
         return false;
       }
 
@@ -142,7 +150,23 @@ export class MemoryMappedCache {
       this.size = newSize;
       return true;
     } catch (error) {
-      console.error(`Error resizing file ${this.path}:`, error);
+      logger.error(`Error resizing file ${this.path}: ${(error as Error).message}`);
+      return false;
+    }
+  }
+
+  flush(): boolean {
+    try {
+      if (!this.isOpenFlag || this.fd === null) {
+        logger.warn(`File not open for flush: ${this.path}`);
+        return false;
+      }
+
+      fs.fsyncSync(this.fd);
+      logger.debug(`Flushed file: ${this.path}`);
+      return true;
+    } catch (error) {
+      logger.error(`Error flushing file ${this.path}: ${(error as Error).message}`);
       return false;
     }
   }
@@ -150,12 +174,12 @@ export class MemoryMappedCache {
   finalize(finalSize: number): boolean {
     try {
       if (!this.isOpenFlag) {
-        console.warn(`File not open for finalization: ${this.path}`);
+        logger.warn(`File not open for finalization: ${this.path}`);
         return false;
       }
 
       if (!this.resize(finalSize)) {
-        console.error(
+        logger.error(
           `Failed to resize file during finalization: ${this.path}`,
         );
         return false;
@@ -167,7 +191,7 @@ export class MemoryMappedCache {
 
       return true;
     } catch (error) {
-      console.error(`Error finalizing file ${this.path}:`, error);
+      logger.error(`Error finalizing file ${this.path}: ${(error as Error).message}`);
       return false;
     }
   }

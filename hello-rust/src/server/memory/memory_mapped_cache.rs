@@ -7,10 +7,15 @@ use std::fs::{File, OpenOptions};
 use std::path::Path;
 use std::sync::Mutex;
 
+// Configuration constants - follows unified mmap specification v2.0.0
 #[allow(dead_code)]
 const DEFAULT_PAGE_SIZE: u64 = 64 * 1024 * 1024; // 64MB
 #[allow(dead_code)]
-const MAX_CACHE_SIZE: u64 = 2 * 1024 * 1024 * 1024; // 2GB
+const MAX_CACHE_SIZE: u64 = 8 * 1024 * 1024 * 1024; // 8GB
+#[allow(dead_code)]
+const SEGMENT_SIZE: u64 = 1 * 1024 * 1024 * 1024; // 1GB per segment
+#[allow(dead_code)]
+const BATCH_OPERATION_LIMIT: usize = 1000; // Max batch operations
 
 /// Memory-mapped cache implementation using memmap2.
 #[allow(dead_code)]
@@ -228,7 +233,7 @@ impl MemoryMappedCache {
     }
 
     /// Resize the file to a new size.
-    fn resize(&self, new_size: u64) -> bool {
+    pub fn resize(&self, new_size: u64) -> bool {
         if !*self.is_open.lock().unwrap() {
             eprintln!("File not open for resize: {}", self.path);
             return false;
@@ -258,6 +263,24 @@ impl MemoryMappedCache {
         }
 
         println!("Resized file {} to {} bytes", self.path, new_size);
+        true
+    }
+
+    /// Flush all mapped data to disk.
+    pub fn flush(&self) -> bool {
+        if !*self.is_open.lock().unwrap() {
+            eprintln!("File not open for flush: {}", self.path);
+            return false;
+        }
+
+        if let Some(ref mmap) = *self.mmap.lock().unwrap() {
+            if let Err(e) = mmap.flush() {
+                eprintln!("Error flushing file {}: {:?}", self.path, e);
+                return false;
+            }
+        }
+
+        println!("Flushed file: {}", self.path);
         true
     }
 

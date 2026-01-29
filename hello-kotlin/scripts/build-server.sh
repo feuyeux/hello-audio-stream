@@ -11,7 +11,7 @@ cd "$PROJECT_ROOT"
 echo "Building Kotlin Audio Stream Server..."
 
 # Build with Gradle
-./gradlew :server:build -x test
+gradle build -x test
 
 echo "Build completed successfully!"
 echo "Executable: server/build/install/server/bin/server"

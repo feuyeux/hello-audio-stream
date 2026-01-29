@@ -119,7 +119,7 @@ export class WebSocketClient {
       // Check if it's an error message
       try {
         const msg: ControlMessage = JSON.parse(data);
-        if (msg.type === "error") {
+        if (msg.type === "ERROR") {
           throw new Error(`Server error: ${msg.message}`);
         } else {
           throw new Error(`Expected binary message, got text: ${data}`);

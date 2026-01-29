@@ -5,8 +5,11 @@
 import 'dart:io';
 import '../../src/logger.dart';
 
+// Configuration constants - follows unified mmap specification v2.0.0
 const defaultPageSize = 64 * 1024 * 1024; // 64MB
-const maxCacheSize = 2 * 1024 * 1024 * 1024; // 2GB
+const maxCacheSize = 8 * 1024 * 1024 * 1024; // 8GB
+const segmentSize = 1 * 1024 * 1024 * 1024; // 1GB per segment
+const batchOperationLimit = 1000; // Max batch operations
 
 /// Memory-mapped cache implementation.
 class MemoryMappedCache {
@@ -87,7 +90,7 @@ class MemoryMappedCache {
 
     int requiredSize = offset + data.length;
     if (requiredSize > _size) {
-      if (!_resizeSync(requiredSize)) {
+      if (!resizeSync(requiredSize)) {
         Logger.error('Failed to resize file for write operation');
         return 0;
       }
@@ -138,7 +141,7 @@ class MemoryMappedCache {
   }
 
   /// Resize the file to a new size (synchronous version).
-  bool _resizeSync(int newSize) {
+  bool resizeSync(int newSize) {
     if (!_isOpen) {
       Logger.error('File not open for resize: $path');
       return false;
@@ -179,7 +182,7 @@ class MemoryMappedCache {
 
     int requiredSize = offset + data.length;
     if (requiredSize > _size) {
-      if (!await _resize(requiredSize)) {
+      if (!await resize(requiredSize)) {
         Logger.error('Failed to resize file for write operation');
         return 0;
       }
@@ -230,10 +233,10 @@ class MemoryMappedCache {
   int getSize() => _size;
 
   /// Check if the file is open.
-  bool getIsOpen() => _isOpen;
+  bool isOpen() => _isOpen;
 
   /// Resize the file to a new size.
-  Future<bool> _resize(int newSize) async {
+  Future<bool> resize(int newSize) async {
     if (!_isOpen) {
       Logger.error('File not open for resize: $path');
       return false;
@@ -271,7 +274,7 @@ class MemoryMappedCache {
       return false;
     }
 
-    if (!await _resize(finalSize)) {
+    if (!await resize(finalSize)) {
       Logger.error('Failed to resize file during finalization: $path');
       return false;
     }

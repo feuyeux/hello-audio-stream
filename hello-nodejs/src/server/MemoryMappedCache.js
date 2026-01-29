@@ -237,6 +237,27 @@ class MemoryMappedCache {
   }
 
   /**
+   * Flush all data to disk.
+   *
+   * @returns {boolean} True if successful
+   */
+  flush() {
+    try {
+      if (!this.isOpen || this.fileHandle === null) {
+        console.warn(`File not open for flush: ${this.path}`);
+        return false;
+      }
+
+      fs.fsyncSync(this.fileHandle);
+      console.log(`Flushed file: ${this.path}`);
+      return true;
+    } catch (error) {
+      console.error(`Error flushing file ${this.path}:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Finalize the file to its final size.
    *
    * @param {number} finalSize - Final size in bytes

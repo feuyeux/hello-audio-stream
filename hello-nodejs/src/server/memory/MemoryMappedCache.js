@@ -6,9 +6,13 @@
 
 import fs from "fs";
 import path from "path";
+import * as logger from "../../logger.js";
 
+// Configuration constants - follows unified mmap specification v2.0.0
 const DEFAULT_PAGE_SIZE = 64 * 1024 * 1024; // 64MB
-const MAX_CACHE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
+const MAX_CACHE_SIZE = 8 * 1024 * 1024 * 1024; // 8GB
+const SEGMENT_SIZE = 1 * 1024 * 1024 * 1024; // 1GB per segment
+const BATCH_OPERATION_LIMIT = 1000; // Max batch operations
 
 /**
  * Memory-mapped cache implementation.
@@ -23,7 +27,7 @@ export class MemoryMappedCache {
     this.path = filePath;
     this.fileHandle = null;
     this.size = 0;
-    this.isOpen = false;
+    this._isOpen = false;
     this.buffer = null;
   }
 
@@ -53,10 +57,10 @@ export class MemoryMappedCache {
         this.size = 0;
       }
 
-      this.isOpen = true;
+      this._isOpen = true;
       return true;
     } catch (error) {
-      console.error(`Error creating file ${filePath}:`, error);
+      logger.error(`Error creating file ${filePath}: ${error.message}`);
       return false;
     }
   }
@@ -70,16 +74,16 @@ export class MemoryMappedCache {
   open(filePath) {
     try {
       if (!fs.existsSync(filePath)) {
-        console.error(`File does not exist: ${filePath}`);
+        logger.error(`File does not exist: ${filePath}`);
         return false;
       }
 
       this.fileHandle = fs.openSync(filePath, "r+");
       this.size = fs.statSync(filePath).size;
-      this.isOpen = true;
+      this._isOpen = true;
       return true;
     } catch (error) {
-      console.error(`Error opening file ${filePath}:`, error);
+      logger.error(`Error opening file ${filePath}: ${error.message}`);
       return false;
     }
   }
@@ -88,10 +92,10 @@ export class MemoryMappedCache {
    * Close the memory-mapped file.
    */
   close() {
-    if (this.isOpen && this.fileHandle !== null) {
+    if (this._isOpen && this.fileHandle !== null) {
       fs.closeSync(this.fileHandle);
       this.fileHandle = null;
-      this.isOpen = false;
+      this._isOpen = false;
       this.buffer = null;
     }
   }
@@ -105,7 +109,7 @@ export class MemoryMappedCache {
    */
   write(offset, data) {
     try {
-      if (!this.isOpen || this.fileHandle === null) {
+      if (!this._isOpen || this.fileHandle === null) {
         const initialSize = offset + data.length;
         if (!this.create(this.path, initialSize)) {
           return 0;
@@ -115,7 +119,7 @@ export class MemoryMappedCache {
       const requiredSize = offset + data.length;
       if (requiredSize > this.size) {
         if (!this.resize(requiredSize)) {
-          console.error("Failed to resize file for write operation");
+          logger.error("Failed to resize file for write operation");
           return 0;
         }
       }
@@ -129,7 +133,7 @@ export class MemoryMappedCache {
       );
       return written;
     } catch (error) {
-      console.error(`Error writing to file ${this.path}:`, error);
+      logger.error(`Error writing to file ${this.path}: ${error.message}`);
       return 0;
     }
   }
@@ -143,9 +147,9 @@ export class MemoryMappedCache {
    */
   read(offset, length) {
     try {
-      if (!this.isOpen || this.fileHandle === null) {
+      if (!this._isOpen || this.fileHandle === null) {
         if (!this.open(this.path)) {
-          console.error(`Failed to open file for reading: ${this.path}`);
+          logger.error(`Failed to open file for reading: ${this.path}`);
           return Buffer.alloc(0);
         }
       }
@@ -170,7 +174,7 @@ export class MemoryMappedCache {
 
       return buffer;
     } catch (error) {
-      console.error(`Error reading from file ${this.path}:`, error);
+      logger.error(`Error reading from file ${this.path}: ${error.message}`);
       return Buffer.alloc(0);
     }
   }
@@ -198,8 +202,8 @@ export class MemoryMappedCache {
    *
    * @returns {boolean} True if open
    */
-  getIsOpen() {
-    return this.isOpen;
+  isOpen() {
+    return this._isOpen;
   }
 
   /**
@@ -210,8 +214,8 @@ export class MemoryMappedCache {
    */
   resize(newSize) {
     try {
-      if (!this.isOpen) {
-        console.error(`File not open for resize: ${this.path}`);
+      if (!this._isOpen) {
+        logger.error(`File not open for resize: ${this.path}`);
         return false;
       }
 
@@ -231,7 +235,28 @@ export class MemoryMappedCache {
       this.size = newSize;
       return true;
     } catch (error) {
-      console.error(`Error resizing file ${this.path}:`, error);
+      logger.error(`Error resizing file ${this.path}: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Flush all data to disk.
+   *
+   * @returns {boolean} True if successful
+   */
+  flush() {
+    try {
+      if (!this._isOpen || this.fileHandle === null) {
+        logger.warn(`File not open for flush: ${this.path}`);
+        return false;
+      }
+
+      fs.fsyncSync(this.fileHandle);
+      logger.debug(`Flushed file: ${this.path}`);
+      return true;
+    } catch (error) {
+      logger.error(`Error flushing file ${this.path}: ${error.message}`);
       return false;
     }
   }
@@ -244,13 +269,13 @@ export class MemoryMappedCache {
    */
   finalize(finalSize) {
     try {
-      if (!this.isOpen) {
-        console.warn(`File not open for finalization: ${this.path}`);
+      if (!this._isOpen) {
+        logger.warn(`File not open for finalization: ${this.path}`);
         return false;
       }
 
       if (!this.resize(finalSize)) {
-        console.error(
+        logger.error(
           `Failed to resize file during finalization: ${this.path}`,
         );
         return false;
@@ -261,7 +286,7 @@ export class MemoryMappedCache {
 
       return true;
     } catch (error) {
-      console.error(`Error finalizing file ${this.path}:`, error);
+      logger.error(`Error finalizing file ${this.path}: ${error.message}`);
       return false;
     }
   }
