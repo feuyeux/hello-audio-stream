@@ -155,6 +155,8 @@ class StreamManager {
 
     /// Read a chunk of data from a stream.
     func readChunk(streamId: String, offset: Int64, length: Int) -> Data {
+        Logger.info("readChunk called: streamId=\(streamId), offset=\(offset), length=\(length)")
+        
         guard let stream = getStream(streamId: streamId) else {
             Logger.error("Stream not found for read: \(streamId)")
             return Data()
@@ -163,16 +165,19 @@ class StreamManager {
         stream.lock.lock()
         defer { stream.lock.unlock() }
 
+        Logger.info("Stream status: \(stream.status), totalSize: \(stream.totalSize)")
+
         // Read data from memory-mapped file
         guard let mmapFile = stream.mmapFile else {
             Logger.error("No mmap file for stream \(streamId)")
             return Data()
         }
 
+        Logger.info("Calling mmapFile.read...")
         let data = mmapFile.read(offset: offset, length: length)
         stream.updateAccessTime()
 
-        Logger.debug("Read \(data.count) bytes from stream \(streamId) at offset \(offset)")
+        Logger.info("Read \(data.count) bytes from stream \(streamId) at offset \(offset)")
         return data
     }
 

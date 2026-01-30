@@ -18,10 +18,10 @@ class UploadManager {
         // Send START message
         try await ws.sendText(
             WebSocketMessage(
-                type: "start", streamId: streamId, offset: nil, length: nil, message: nil))
+                type: MessageType.START.rawValue, streamId: streamId, offset: nil, length: nil, message: nil))
 
         // Wait for START_ACK
-        guard let startAck = try await ws.receiveText(), startAck.contains("\"type\":\"STARTED\"")
+        guard let startAck = try await ws.receiveText(), startAck.contains("\"type\":\"\(MessageType.STARTED.rawValue)\"")
         else {
             throw NSError(
                 domain: "Upload", code: 1,
@@ -54,10 +54,10 @@ class UploadManager {
         // Send STOP message
         try await ws.sendText(
             WebSocketMessage(
-                type: "stop", streamId: streamId, offset: nil, length: nil, message: nil))
+                type: MessageType.STOP.rawValue, streamId: streamId, offset: nil, length: nil, message: nil))
 
         // Wait for STOP_ACK
-        guard let stopAck = try await ws.receiveText(), stopAck.contains("\"type\":\"STOPPED\"")
+        guard let stopAck = try await ws.receiveText(), stopAck.contains("\"type\":\"\(MessageType.STOPPED.rawValue)\"")
         else {
             throw NSError(
                 domain: "Upload", code: 2,

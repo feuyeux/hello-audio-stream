@@ -26,7 +26,7 @@ class DownloadManager {
             // Send GET message
             try await ws.sendText(
                 WebSocketMessage(
-                    type: "GET",
+                    type: MessageType.GET.rawValue,
                     streamId: streamId,
                     offset: offset,
                     length: length,

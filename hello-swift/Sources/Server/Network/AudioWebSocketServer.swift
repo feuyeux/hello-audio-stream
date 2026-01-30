@@ -41,12 +41,17 @@ class AudioWebSocketServer {
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
             .childChannelInitializer { channel in
-                let httpHandler = HTTPHandler(path: self.path)
                 let websocketUpgrader = NIOWebSocketServerUpgrader(
                     shouldUpgrade: { (channel: Channel, head: HTTPRequestHead) in
-                        channel.eventLoop.makeSucceededFuture(HTTPHeaders())
+                        // Only upgrade if path matches
+                        if head.uri == self.path {
+                            return channel.eventLoop.makeSucceededFuture(HTTPHeaders())
+                        } else {
+                            return channel.eventLoop.makeFailedFuture(ChannelError.inappropriateOperationForState)
+                        }
                     },
                     upgradePipelineHandler: { (channel: Channel, _: HTTPRequestHead) in
+                        // Add WebSocket handler after upgrade
                         channel.pipeline.addHandler(WebSocketHandler(
                             messageHandler: self.messageHandler,
                             streamManager: self.streamManager
@@ -57,11 +62,12 @@ class AudioWebSocketServer {
                 return channel.pipeline.configureHTTPServerPipeline(
                     withServerUpgrade: (
                         upgraders: [websocketUpgrader],
-                        completionHandler: { _ in }
+                        completionHandler: { context in
+                            // Upgrade completed successfully
+                            Logger.debug("WebSocket upgrade completed")
+                        }
                     )
-                ).flatMap {
-                    channel.pipeline.addHandler(httpHandler)
-                }
+                )
             }
             .childChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
             .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 16)
@@ -83,45 +89,6 @@ class AudioWebSocketServer {
             Logger.info("WebSocket server stopped")
         } catch {
             Logger.error("Error stopping server: \(error)")
-        }
-    }
-}
-
-/// HTTP handler for WebSocket upgrade
-private final class HTTPHandler: ChannelInboundHandler {
-    typealias InboundIn = HTTPServerRequestPart
-    typealias OutboundOut = HTTPServerResponsePart
-    
-    private let path: String
-    
-    init(path: String) {
-        self.path = path
-    }
-    
-    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let reqPart = unwrapInboundIn(data)
-        
-        switch reqPart {
-        case .head(let head):
-            // Check if this is a WebSocket upgrade request
-            let isWebSocketUpgrade = head.headers["Upgrade"].contains { $0.lowercased() == "websocket" }
-            
-            if !isWebSocketUpgrade && head.uri != path {
-                let headers = HTTPHeaders([("Content-Length", "9")])
-                context.write(wrapOutboundOut(.head(HTTPResponseHead(
-                    version: head.version,
-                    status: .notFound,
-                    headers: headers
-                ))), promise: nil)
-                var buffer = context.channel.allocator.buffer(capacity: 9)
-                buffer.writeString("Not Found")
-                context.write(wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
-                context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: nil)
-            }
-            // For WebSocket upgrades, let the pipeline handle it
-            context.fireChannelRead(data)
-        case .body, .end:
-            context.fireChannelRead(data)
         }
     }
 }
@@ -179,27 +146,28 @@ private final class WebSocketHandler: ChannelInboundHandler {
     private func handleTextMessage(context: ChannelHandlerContext, text: String) {
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = json["type"] as? String else {
-            sendError(context: context, message: "Invalid JSON format")
+              let typeString = json["type"] as? String,
+              let messageType = MessageType.fromString(typeString) else {
+            sendError(context: context, message: "Invalid JSON format or unknown message type")
             return
         }
         
-        switch type {
-        case "START":
+        switch messageType {
+        case .START:
             guard let streamId = json["streamId"] as? String else {
                 sendError(context: context, message: "Missing streamId")
                 return
             }
             handleStart(context: context, streamId: streamId)
             
-        case "STOP":
+        case .STOP:
             guard let streamId = json["streamId"] as? String else {
                 sendError(context: context, message: "Missing streamId")
                 return
             }
             handleStop(context: context, streamId: streamId)
             
-        case "GET":
+        case .GET:
             guard let streamId = json["streamId"] as? String else {
                 sendError(context: context, message: "Missing streamId")
                 return
@@ -209,7 +177,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
             handleGet(context: context, streamId: streamId, offset: offset, length: length)
             
         default:
-            sendError(context: context, message: "Unknown message type: \(type)")
+            sendError(context: context, message: "Unsupported message type: \(messageType.rawValue)")
         }
     }
     
@@ -227,7 +195,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
         if streamManager.createStream(streamId: streamId) {
             activeStreamId = streamId
             let response: [String: Any] = [
-                "type": "STARTED",
+                "type": MessageType.STARTED.rawValue,
                 "streamId": streamId,
                 "message": "Stream started successfully"
             ]
@@ -242,7 +210,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
         if streamManager.finalizeStream(streamId: streamId) {
             activeStreamId = nil
             let response: [String: Any] = [
-                "type": "STOPPED",
+                "type": MessageType.STOPPED.rawValue,
                 "streamId": streamId,
                 "message": "Stream finalized successfully"
             ]
@@ -254,7 +222,9 @@ private final class WebSocketHandler: ChannelInboundHandler {
     }
     
     private func handleGet(context: ChannelHandlerContext, streamId: String, offset: Int, length: Int) {
+        Logger.info("handleGet called: streamId=\(streamId), offset=\(offset), length=\(length)")
         let chunkData = streamManager.readChunk(streamId: streamId, offset: Int64(offset), length: length)
+        Logger.info("readChunk returned \(chunkData.count) bytes")
         
         if !chunkData.isEmpty {
             var buffer = context.channel.allocator.buffer(capacity: chunkData.count)
@@ -263,6 +233,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
             context.writeAndFlush(wrapOutboundOut(frame), promise: nil)
             Logger.debug("Sent \(chunkData.count) bytes for stream \(streamId) at offset \(offset)")
         } else {
+            Logger.error("readChunk returned empty data for stream \(streamId)")
             sendError(context: context, message: "Failed to read from stream: \(streamId)")
         }
     }
@@ -281,7 +252,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
     
     private func sendError(context: ChannelHandlerContext, message: String) {
         let response: [String: Any] = [
-            "type": "ERROR",
+            "type": MessageType.ERROR.rawValue,
             "message": message
         ]
         sendJSON(context: context, json: response)

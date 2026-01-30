@@ -48,7 +48,8 @@ class MemoryMappedCache {
             return false
         }
 
-        guard let handle = FileHandle(forWritingAtPath: filePath) else {
+        // Open in read-write mode to support both operations
+        guard let handle = FileHandle(forUpdatingAtPath: filePath) else {
             Logger.error("Error opening file handle for \(filePath)")
             return false
         }
@@ -87,7 +88,8 @@ class MemoryMappedCache {
             return false
         }
 
-        guard let handle = FileHandle(forReadingAtPath: filePath),
+        // Open file in read-write mode to support both read and write operations
+        guard let handle = FileHandle(forUpdatingAtPath: filePath),
             let attributes = try? FileManager.default.attributesOfItem(atPath: filePath),
             let fileSize = attributes[.size] as? Int64
         else {
@@ -165,7 +167,10 @@ class MemoryMappedCache {
         rwLock.lock()
         defer { rwLock.unlock() }
 
+        Logger.info("Read request: offset=\(offset), length=\(length), isOpen=\(_isOpen), size=\(size)")
+
         if !_isOpen || fileHandle == nil {
+            Logger.info("File not open, attempting to open: \(path)")
             if !openInternal(filePath: path) {
                 Logger.error("Failed to open file for reading: \(path)")
                 return Data()
@@ -173,10 +178,12 @@ class MemoryMappedCache {
         }
 
         if offset >= size {
+            Logger.warn("Read offset \(offset) >= file size \(size)")
             return Data()
         }
 
         guard let handle = fileHandle else {
+            Logger.error("File handle is nil after open")
             return Data()
         }
 
@@ -184,7 +191,7 @@ class MemoryMappedCache {
         do {
             try handle.seek(toOffset: UInt64(offset))
         } catch {
-            Logger.error("Error seeking in file \(path)")
+            Logger.error("Error seeking in file \(path): \(error)")
             return Data()
         }
 
@@ -195,6 +202,7 @@ class MemoryMappedCache {
             return Data()
         }
 
+        Logger.info("Successfully read \(data.count) bytes from \(path)")
         return data
     }
 

@@ -347,11 +347,17 @@ private final class WebSocketFrameHandler: ChannelInboundHandler {
             if masked {
                 if payloadLength == 126 {
                     guard buffer.readableBytes >= 2,
-                          let extendedLength = buffer.readInteger(as: UInt16.self) else { break }
+                          let extendedLength = buffer.readInteger(endianness: .big, as: UInt16.self) else { break }
                     payloadLength = Int(extendedLength)
                 } else if payloadLength == 127 {
                     guard buffer.readableBytes >= 8,
-                          let extendedLength = buffer.readInteger(as: UInt64.self) else { break }
+                          let extendedLength = buffer.readInteger(endianness: .big, as: UInt64.self) else { break }
+                    // Validate that the length fits in Int
+                    guard extendedLength <= Int.max else {
+                        Logger.error("Payload length too large: \(extendedLength)")
+                        context.close(promise: nil)
+                        return
+                    }
                     payloadLength = Int(extendedLength)
                 }
             }
