@@ -8,7 +8,7 @@ public class Logger {
         return formatter
     }()
     
-    private static var verboseEnabled = false
+    nonisolated(unsafe) private static var verboseEnabled = false
     
     public static func setVerbose(_ enabled: Bool) {
         verboseEnabled = enabled

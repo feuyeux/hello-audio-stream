@@ -2,6 +2,12 @@ import Foundation
 import ArgumentParser
 import AudioStreamCommon
 
+/// Thread-safe state for workflow execution
+private final class WorkflowState: @unchecked Sendable {
+    var hasError = false
+    var finished = false
+}
+
 /// Command-line argument parser
 struct AudioStreamClient: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -50,26 +56,29 @@ struct AudioStreamClient: ParsableCommand {
             verbose: verbose
         )
         
-        // Run the main workflow synchronously
-        let semaphore = DispatchSemaphore(value: 0)
-        var exitCode: Int32 = 0
+        // Run the main workflow synchronously using RunLoop
+        let state = WorkflowState()
         
         Task {
             do {
-                try await runWorkflow(config: config)
-                exitCode = 0
+                try await Self.executeWorkflow(config: config)
             } catch {
                 Logger.error("Fatal error: \(error.localizedDescription)")
-                exitCode = 1
+                state.hasError = true
             }
-            semaphore.signal()
+            state.finished = true
         }
         
-        semaphore.wait()
-        throw ExitCode(exitCode)
+        while !state.finished {
+            _ = RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.1))
+        }
+        
+        if state.hasError {
+            throw ExitCode.failure
+        }
     }
     
-    func runWorkflow(config: Config) async throws {
+    static func executeWorkflow(config: Config) async throws {
         Logger.info("Audio Stream Client")
         Logger.info("Input: \(config.inputPath)")
         Logger.info("Output: \(config.outputPath)")

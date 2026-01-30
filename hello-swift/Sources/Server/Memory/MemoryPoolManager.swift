@@ -13,7 +13,7 @@ import AudioStreamCommon
 
 /// Memory pool manager singleton.
 class MemoryPoolManager {
-    private static var instance: MemoryPoolManager?
+    nonisolated(unsafe) private static var instance: MemoryPoolManager?
     private let bufferSize: Int
     private let poolSize: Int
     private var availableBuffers: [Data]

@@ -220,7 +220,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
         }
         
         Logger.debug("Received \(data.count) bytes of binary data for stream \(streamId)")
-        _ = streamManager.writeChunk(streamId: streamId, data: data)
+        _ = streamManager.writeChunk(streamId: streamId, data: Data(data))
     }
     
     private func handleStart(context: ChannelHandlerContext, streamId: String) {
@@ -254,7 +254,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
     }
     
     private func handleGet(context: ChannelHandlerContext, streamId: String, offset: Int, length: Int) {
-        let chunkData = streamManager.readChunk(streamId: streamId, offset: offset, length: length)
+        let chunkData = streamManager.readChunk(streamId: streamId, offset: Int64(offset), length: length)
         
         if !chunkData.isEmpty {
             var buffer = context.channel.allocator.buffer(capacity: chunkData.count)

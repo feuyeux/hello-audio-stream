@@ -261,7 +261,7 @@ class MemoryMappedCache {
         rwLock.lock()
         defer { rwLock.unlock() }
 
-        guard _isOpen, let fileHandle = handle else {
+        guard _isOpen, let fileHandle = fileHandle else {
             Logger.warn("File not open for flush: \(path)")
             return false
         }

@@ -12,7 +12,7 @@ import Foundation
 
 /// Stream manager for managing multiple concurrent streams.
 class StreamManager {
-    private static var instance: StreamManager?
+    nonisolated(unsafe) private static var instance: StreamManager?
     private let cacheDirectory: String
     private var streams: [String: StreamContext] = [:]
     private let lock = NSLock()
