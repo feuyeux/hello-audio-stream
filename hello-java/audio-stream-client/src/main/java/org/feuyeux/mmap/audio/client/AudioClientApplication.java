@@ -28,10 +28,21 @@ public class AudioClientApplication {
     private static final int DEFAULT_CHUNK_SIZE = 65536; // 64KB
 
     public static void main(String[] args) {
-        String inputFilePath = args.length > 0 ? args[0] : null;
+        // Parse named arguments: --server, --input
+        String serverUri = DEFAULT_SERVER_URI;
+        String inputFilePath = null;
+
+        for (int i = 0; i < args.length; i++) {
+            if ("--server".equals(args[i]) && i + 1 < args.length) {
+                serverUri = args[++i];
+            } else if ("--input".equals(args[i]) && i + 1 < args.length) {
+                inputFilePath = args[++i];
+            }
+        }
+
         // Validate input file
         if (inputFilePath == null) {
-            logger.error("Input file not specified. Usage: java -jar audio-stream-client.jar [serverUri] [inputFile] [chunkSize]");
+            logger.error("Input file not specified. Usage: java -jar audio-stream-client.jar --server <uri> --input <file>");
             System.exit(1);
         }
 
@@ -62,7 +73,7 @@ public class AudioClientApplication {
             long operationStartTime = System.currentTimeMillis();
 
             // Initialize components
-            WebSocketClient wsClient = new WebSocketClient(URI.create(DEFAULT_SERVER_URI));
+            WebSocketClient wsClient = new WebSocketClient(URI.create(serverUri));
             FileManager fileManager = new FileManager();
             ChunkManager chunkManager = new ChunkManager();
             ErrorHandler errorHandler = new ErrorHandler();

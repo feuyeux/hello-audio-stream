@@ -6,6 +6,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
-echo "Starting C# Client..."
+SERVER_URI=${1:-ws://localhost:8080/audio}
+INPUT_FILE=${2:-../audio/input/hello.mp3}
 
-dotnet run --configuration Release --project src/audio_stream_client/audio_stream_client.csproj -- "$@"
+echo "Starting C# Client..."
+echo "Server: $SERVER_URI"
+echo "Input: $INPUT_FILE"
+
+dotnet run --configuration Release --project AudioFileTransfer.csproj -- --server "$SERVER_URI" --input "$INPUT_FILE"

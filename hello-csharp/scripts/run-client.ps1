@@ -15,9 +15,9 @@ Write-Host "Starting C# Client..." -ForegroundColor Green
 Write-Host "Server: $ServerUri" -ForegroundColor Green
 Write-Host "Input: $InputFile" -ForegroundColor Green
 
-$args = @("client", "--server", $ServerUri, "--input", $InputFile)
+$clientArgs = @("client", "--server", $ServerUri, "--input", $InputFile)
 if ($OutputFile) {
-    $args += @("--output", $OutputFile)
+    $clientArgs += @("--output", $OutputFile)
 }
 
-dotnet run -c Release -- @args
+dotnet run -c Release -- @clientArgs

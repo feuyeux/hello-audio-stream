@@ -12,9 +12,17 @@ echo "Starting Java Client..."
 
 cd audio-stream-client
 
-if [ ! -f "target/audio-stream-client.jar" ]; then
+SERVER_URI=${1:-ws://localhost:8080/audio}
+INPUT_FILE=${2:-../../audio/input/hello.mp3}
+
+JAR_FILE=$(ls target/audio-stream-client*.jar 2>/dev/null | grep -v original | head -1)
+if [ -z "$JAR_FILE" ]; then
     echo "JAR not found. Building..."
     bash "$SCRIPT_DIR/build-client.sh"
+    JAR_FILE=$(ls target/audio-stream-client*.jar 2>/dev/null | grep -v original | head -1)
 fi
 
-java -jar target/audio-stream-client.jar "$@"
+echo "Server: $SERVER_URI"
+echo "Input: $INPUT_FILE"
+
+java --enable-preview -jar "$JAR_FILE" --server "$SERVER_URI" --input "$INPUT_FILE"

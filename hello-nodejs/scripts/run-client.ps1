@@ -20,9 +20,9 @@ Write-Host "Starting Node.js Client..." -ForegroundColor Green
 Write-Host "Server: $ServerUri" -ForegroundColor Green
 Write-Host "Input: $InputFile" -ForegroundColor Green
 
-$args = @("--server", $ServerUri, "--input", $InputFile)
+$clientArgs = @("--server", $ServerUri, "--input", $InputFile)
 if ($OutputFile) {
-    $args += @("--output", $OutputFile)
+    $clientArgs += @("--output", $OutputFile)
 }
 
-node src/index.js @args
+node src/index.js @clientArgs

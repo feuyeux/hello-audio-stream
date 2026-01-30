@@ -18,9 +18,11 @@ echo ""
 
 cd audio-stream-server
 
-if [ ! -f "target/audio-stream-server.jar" ]; then
+JAR_FILE=$(ls target/audio-stream-server*.jar 2>/dev/null | grep -v original | head -1)
+if [ -z "$JAR_FILE" ]; then
     echo "JAR not found. Building..."
     bash "$SCRIPT_DIR/build-server.sh"
+    JAR_FILE=$(ls target/audio-stream-server*.jar 2>/dev/null | grep -v original | head -1)
 fi
 
-java -jar target/audio-stream-server.jar "$PORT" "$PATH_ENDPOINT"
+java --enable-preview -jar "$JAR_FILE" "$PORT" "$PATH_ENDPOINT"

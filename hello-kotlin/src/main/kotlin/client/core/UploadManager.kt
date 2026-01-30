@@ -21,9 +21,9 @@ object UploadManager {
         // Send START message
         ws.sendText(WebSocketMessage(type = "START", streamId = streamId))
 
-        // Wait for START_ACK (response type is "STARTED")
+        // Wait for START_ACK (response type is "STARTED" or "started")
         val startAck = ws.receiveText()
-        if (startAck == null || !startAck.contains("\"type\":\"STARTED\"")) {
+        if (startAck == null || !(startAck.contains("\"type\":\"STARTED\"") || startAck.contains("\"type\":\"started\""))) {
             Logger.error("Unexpected response: $startAck")
             throw Exception("Failed to receive START_ACK")
         }
@@ -53,9 +53,9 @@ object UploadManager {
         // Send STOP message
         ws.sendText(WebSocketMessage(type = "STOP", streamId = streamId))
 
-        // Wait for STOP_ACK (response type is "STOPPED")
+        // Wait for STOP_ACK (response type is "STOPPED" or "stopped")
         val stopAck = ws.receiveText()
-        if (stopAck == null || !stopAck.contains("\"type\":\"STOPPED\"")) {
+        if (stopAck == null || !(stopAck.contains("\"type\":\"STOPPED\"") || stopAck.contains("\"type\":\"stopped\""))) {
             Logger.error("Unexpected response: $stopAck")
             throw Exception("Failed to receive STOP_ACK")
         }

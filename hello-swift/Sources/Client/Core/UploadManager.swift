@@ -18,7 +18,7 @@ class UploadManager {
         // Send START message
         try await ws.sendText(
             WebSocketMessage(
-                type: "START", streamId: streamId, offset: nil, length: nil, message: nil))
+                type: "start", streamId: streamId, offset: nil, length: nil, message: nil))
 
         // Wait for START_ACK
         guard let startAck = try await ws.receiveText(), startAck.contains("\"type\":\"STARTED\"")
@@ -54,7 +54,7 @@ class UploadManager {
         // Send STOP message
         try await ws.sendText(
             WebSocketMessage(
-                type: "STOP", streamId: streamId, offset: nil, length: nil, message: nil))
+                type: "stop", streamId: streamId, offset: nil, length: nil, message: nil))
 
         // Wait for STOP_ACK
         guard let stopAck = try await ws.receiveText(), stopAck.contains("\"type\":\"STOPPED\"")

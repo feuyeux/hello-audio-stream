@@ -321,3 +321,9 @@ cd hello-php
 - **BATCH_OPERATION_LIMIT**: 1000
 
 详细技术文档请参考 [doc/mmap.md](doc/mmap.md)
+                                 
+                                  
+  语言: Swift                                                                 
+  脚本: hello-swift/scripts/run-client.sh                                     
+  错误: Fatal error: WebSockets not supported by libcurl  
+  是否应该使用 SwiftNIO 原生 来实现？

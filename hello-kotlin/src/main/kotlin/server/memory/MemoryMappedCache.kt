@@ -87,7 +87,7 @@ class MemoryMappedCache(private val path: String) {
                 mapFile()
             }
 
-            isOpen = true
+            _isOpen = true
             Logger.debug("Opened mmap file: $path with size: $size")
             true
         } catch (e: Exception) {

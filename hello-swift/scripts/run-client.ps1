@@ -22,9 +22,9 @@ Write-Host "Starting Swift Client..." -ForegroundColor Green
 Write-Host "Server: $ServerUri" -ForegroundColor Green
 Write-Host "Input: $InputFile" -ForegroundColor Green
 
-$args = @("--server", $ServerUri, "--input", $InputFile)
+$clientArgs = @("--server", $ServerUri, "--input", $InputFile)
 if ($OutputFile) {
-    $args += @("--output", $OutputFile)
+    $clientArgs += @("--output", $OutputFile)
 }
 
-& $ClientBin @args
+& $ClientBin @clientArgs

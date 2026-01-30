@@ -2,8 +2,7 @@
 param(
     [string]$ServerUri = "ws://localhost:8080/audio",
     [string]$InputFile = "..\audio\input\hello.mp3",
-    [string]$OutputFile,
-    [switch]$Verbose
+    [string]$OutputFile
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -27,12 +26,5 @@ $clientArgs = @("--server", $ServerUri, "--input", $InputFile)
 if ($OutputFile) {
     $clientArgs += @("--output", $OutputFile)
 }
-if ($Verbose) {
-    $clientArgs += @("--verbose")
-}
-
-Write-Host ""
-Write-Host "Executing: $ClientBin $($clientArgs -join ' ')" -ForegroundColor Cyan
-Write-Host ""
 
 & $ClientBin @clientArgs

@@ -32,7 +32,7 @@ class AudioWebSocketServer(
     private val memoryPool: MemoryPoolManager = memoryPool ?: MemoryPoolManager.getInstance()
     private val messageHandler: WebSocketMessageHandler = WebSocketMessageHandler(this.streamManager)
     private val clients = ConcurrentHashMap<DefaultWebSocketSession, Long>()
-    private var server: ApplicationEngine? = null
+    private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
 
     init {
         Logger.info("AudioWebSocketServer initialized on port $port$path")

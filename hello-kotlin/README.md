@@ -100,12 +100,7 @@ The client follows a modular architecture:
 5. **Verify**: Compare SHA-256 checksums and file sizes
 6. **Report**: Display performance metrics (throughput, duration)
 
-## Testing
-
-```bash
-# Run tests with Gradle
-./gradlew test
-```
+ 
 
 ## Platform Support
 
@@ -126,8 +121,8 @@ The client follows a modular architecture:
 ### Build Fails
 
 - Ensure JDK 21+ is installed: `java -version`
-- Ensure Gradle is accessible: `./gradlew --version`
-- Clean build directory: `./gradlew clean`
+- Ensure Gradle is accessible: `gradle --version`
+- Clean build directory: `gradle clean`
 
 ### Connection Refused
 

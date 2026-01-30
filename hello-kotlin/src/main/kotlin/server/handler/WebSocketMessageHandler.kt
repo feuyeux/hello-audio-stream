@@ -38,7 +38,7 @@ data class WebSocketMessage(
         }
 
         fun stopped(streamId: String, message: String = "Stream finalized"): WebSocketMessage {
-            return WebSocketMessage(type = "stopped", streamId = streamId, message = message)
+            return WebSocketMessage(type = "STOPPED", streamId = streamId, message = message)
         }
 
         fun error(message: String): WebSocketMessage {

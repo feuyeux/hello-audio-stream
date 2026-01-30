@@ -20,9 +20,9 @@ Write-Host "Starting TypeScript Client..." -ForegroundColor Green
 Write-Host "Server: $ServerUri" -ForegroundColor Green
 Write-Host "Input: $InputFile" -ForegroundColor Green
 
-$args = @("--server", $ServerUri, "--input", $InputFile)
+$clientArgs = @("--server", $ServerUri, "--input", $InputFile)
 if ($OutputFile) {
-    $args += @("--output", $OutputFile)
+    $clientArgs += @("--output", $OutputFile)
 }
 
-npx ts-node src/index.ts @args
+npx ts-node src/index.ts @clientArgs

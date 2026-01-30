@@ -23,22 +23,29 @@ import java.util.function.Consumer;
 public class WebSocketClient implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(WebSocketClient.class);
 
-    private final org.java_websocket.client.WebSocketClient internalClient;
+    private org.java_websocket.client.WebSocketClient internalClient;
+    private final URI serverUri;
     private volatile CountDownLatch connectLatch;
     private final AtomicReference<String> connectionId = new AtomicReference<>();
     private final BlockingQueue<byte[]> binaryMessageQueue = new LinkedBlockingQueue<>(10);
     private final BlockingQueue<String> textMessageQueue = new LinkedBlockingQueue<>(10);
     private volatile boolean connected = false;
-    
+
     // Message handlers
     private Consumer<String> onMessageHandler;
     private Consumer<byte[]> onBinaryMessageHandler;
     private Consumer<String> onErrorHandler;
 
     public WebSocketClient(URI serverUri) {
+        this.serverUri = serverUri;
         this.connectLatch = new CountDownLatch(1);
-        
-        // Create internal WebSocket client with callbacks
+        createInternalClient();
+    }
+
+    /**
+     * Create a new internal WebSocket client with callbacks.
+     */
+    private void createInternalClient() {
         this.internalClient = new org.java_websocket.client.WebSocketClient(serverUri) {
             @Override
             public void onOpen(org.java_websocket.handshake.ServerHandshake handshake) {
@@ -124,6 +131,7 @@ public class WebSocketClient implements AutoCloseable {
 
     /**
      * Connect to server with retry logic.
+     * Creates a new internal WebSocket client for each retry attempt.
      *
      * @param maxRetries maximum number of retry attempts
      * @return true if connection established successfully
@@ -131,11 +139,15 @@ public class WebSocketClient implements AutoCloseable {
     public boolean connectWithRetry(int maxRetries) {
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
+                // Create new internal client for each attempt
+                // Java-WebSocket doesn't allow reusing a client after connection attempt
+                createInternalClient();
+
                 logger.info("Connection attempt {}/{}", attempt, maxRetries);
                 if (connectAndWait(5000)) {
                     return true;
                 }
-                
+
                 if (attempt < maxRetries) {
                     long delay = (long) Math.pow(2, attempt - 1) * 1000; // Exponential backoff
                     logger.warn("Connection failed, retrying in {} ms", delay);

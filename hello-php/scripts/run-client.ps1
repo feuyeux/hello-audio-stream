@@ -1,7 +1,7 @@
 # Run Client - PHP Implementation (Windows PowerShell)
 param(
     [string]$ServerUri = "ws://localhost:8080/audio",
-    [string]$InputFile = "../audio/input/hello.mp3",
+    [string]$InputFile = "..\audio\input\hello.mp3",
     [string]$OutputFile
 )
 
@@ -23,9 +23,9 @@ Write-Host "Starting PHP Client..." -ForegroundColor Green
 Write-Host "Server: $ServerUri" -ForegroundColor Green
 Write-Host "Input: $InputFile" -ForegroundColor Green
 
-$args = @("--server", $ServerUri, "--input", $InputFile)
+$clientArgs = @("--server", $ServerUri, "--input", $InputFile)
 if ($OutputFile) {
-    $args += @("--output", $OutputFile)
+    $clientArgs += @("--output", $OutputFile)
 }
 
-php audio_stream_client.php @args
+php audio_stream_client.php @clientArgs

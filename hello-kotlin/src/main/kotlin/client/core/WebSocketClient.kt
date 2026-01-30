@@ -8,6 +8,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import WebSocketMessage
 import Logger
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * WebSocket client for audio streaming
@@ -15,7 +16,7 @@ import Logger
 class WebSocketClient(private val uri: String) {
     private val client = HttpClient(CIO) {
         install(WebSockets) {
-            pingInterval = 20_000
+            pingInterval = 20.seconds
             maxFrameSize = Long.MAX_VALUE
         }
     }

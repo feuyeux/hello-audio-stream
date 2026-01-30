@@ -15,9 +15,10 @@ Write-Host "Starting Kotlin Client..." -ForegroundColor Green
 Write-Host "Server: $ServerUri" -ForegroundColor Green
 Write-Host "Input: $InputFile" -ForegroundColor Green
 
-$clientArgs = "--server $ServerUri --input $InputFile"
+$clientArgs = @("--server", $ServerUri, "--input", $InputFile)
 if ($OutputFile) {
-    $clientArgs += " --output $OutputFile"
+    $clientArgs += @("--output", $OutputFile)
 }
 
-gradle runClient --args="$clientArgs" --console=plain
+$gradleArgs = $clientArgs -join ' '
+gradle runClient --args="$gradleArgs" --console=plain

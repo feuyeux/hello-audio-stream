@@ -8,7 +8,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
+SERVER_URI=${1:-ws://localhost:8080/audio}
+INPUT_FILE=${2:-../audio/input/hello.mp3}
+
 echo "Starting Node.js Client..."
+echo "Server: $SERVER_URI"
+echo "Input: $INPUT_FILE"
 
 if [ ! -d "node_modules" ]; then
     echo "Dependencies not found. Building..."
@@ -16,4 +21,4 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # Run client
-node src/client.js "$@"
+node src/index.js --server "$SERVER_URI" --input "$INPUT_FILE"
