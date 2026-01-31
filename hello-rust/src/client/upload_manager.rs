@@ -4,15 +4,15 @@ use super::{
     websocket_client::{ControlMessage, WebSocketClient},
 };
 use crate::logger;
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 pub async fn upload(
     ws_client: &mut WebSocketClient,
     file_path: &str,
     file_size: u64,
 ) -> Result<String> {
-    // Generate unique stream ID
-    let stream_id = stream_id_generator::generate_stream_id();
+    // Generate unique stream ID (using short UUID format like Java)
+    let stream_id = stream_id_generator::generate_short();
     logger::log_info(&format!("Generated stream ID: {}", stream_id));
 
     // Send START message
@@ -46,7 +46,7 @@ pub async fn upload(
             std::cmp::min(file_manager::CHUNK_SIZE as u64, file_size - offset) as usize;
         let chunk = file_manager::read_chunk(file_path, offset, chunk_size)
             .await
-            .context("Failed to read file chunk")?;
+            .map_err(|e| anyhow::anyhow!("Failed to read file chunk: {}", e))?;
 
         ws_client.send_binary(chunk).await?;
 

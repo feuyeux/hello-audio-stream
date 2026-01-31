@@ -24,11 +24,3 @@ rand = "0.9"
 url = "2.5"
 memmap2 = "0.9"
 base64 = "0.22"
-
-[[bin]]
-name = "audio_stream_client"
-path = "src/bin/audio_client_application.rs"
-
-[[bin]]
-name = "audio_stream_server"
-path = "src/bin/audio_server_application.rs"

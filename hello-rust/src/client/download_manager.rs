@@ -3,14 +3,17 @@ use super::{
     websocket_client::{ControlMessage, WebSocketClient},
 };
 use crate::logger;
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 pub async fn download(
     ws_client: &mut WebSocketClient,
     stream_id: &str,
     output_path: &str,
     file_size: u64,
-) -> Result<()> {
+) -> Result<u64> {
+    logger::log_info(&format!("Starting download: streamId={}, outputPath={}, expectedSize={}",
+        stream_id, output_path, file_size));
+
     let mut offset = 0u64;
     let mut bytes_received = 0u64;
     let mut last_progress = 0;
@@ -36,7 +39,7 @@ pub async fn download(
         // Write to file
         file_manager::write_chunk(output_path, &data, !is_first_chunk)
             .await
-            .context("Failed to write downloaded chunk")?;
+            .map_err(|e| anyhow::anyhow!("Failed to write downloaded chunk: {}", e))?;
 
         is_first_chunk = false;
         offset += data.len() as u64;
@@ -61,5 +64,7 @@ pub async fn download(
         ));
     }
 
-    Ok(())
+    logger::log_info(&format!("Download completed: {} bytes downloaded", bytes_received));
+
+    Ok(bytes_received)
 }
