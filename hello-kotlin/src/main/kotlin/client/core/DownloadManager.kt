@@ -33,9 +33,6 @@ object DownloadManager {
             
             // Receive binary data
             val data = ws.receiveBinary()
-            if (data == null) {
-                throw Exception("Failed to receive data at offset $offset")
-            }
             
             // Write to file
             FileManager.writeChunk(outputPath, data, append = true)

@@ -66,7 +66,7 @@ class WebSocketClient(private val uri: String) {
         session.send(Frame.Binary(true, data))
     }
     
-    suspend fun receiveText(): String? {
+    suspend fun receiveText(): String {
         val frame = session.incoming.receive()
         return when (frame) {
             is Frame.Text -> {
@@ -74,11 +74,11 @@ class WebSocketClient(private val uri: String) {
                 Logger.debug("Received: $text")
                 text
             }
-            else -> null
+            else -> throw Exception("Expected text message, got: ${frame::class.simpleName}")
         }
     }
-    
-    suspend fun receiveBinary(): ByteArray? {
+
+    suspend fun receiveBinary(): ByteArray {
         val frame = session.incoming.receive()
         return when (frame) {
             is Frame.Binary -> {
@@ -86,7 +86,22 @@ class WebSocketClient(private val uri: String) {
                 Logger.debug("Received binary data: ${data.size} bytes")
                 data
             }
-            else -> null
+            is Frame.Text -> {
+                val text = frame.readText()
+                Logger.debug("Received text message instead of binary: $text")
+                // Try to parse as error response
+                try {
+                    val jsonParser = Json { ignoreUnknownKeys = true }
+                    val msg = jsonParser.decodeFromString<WebSocketMessage>(text)
+                    if (msg.type == "ERROR") {
+                        throw Exception("Server error: ${msg.message}")
+                    }
+                } catch (e: Exception) {
+                    // Ignore parse errors, fall through to default error
+                }
+                throw Exception("Expected binary message, got text: $text")
+            }
+            else -> throw Exception("Expected binary message, got: ${frame::class.simpleName}")
         }
     }
 }

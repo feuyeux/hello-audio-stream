@@ -225,16 +225,18 @@ private final class WebSocketHandler: ChannelInboundHandler {
         Logger.info("handleGet called: streamId=\(streamId), offset=\(offset), length=\(length)")
         let chunkData = streamManager.readChunk(streamId: streamId, offset: Int64(offset), length: length)
         Logger.info("readChunk returned \(chunkData.count) bytes")
-        
+
         if !chunkData.isEmpty {
+            // Use WebSocketFrame with payload data for server-to-client binary data (no masking)
             var buffer = context.channel.allocator.buffer(capacity: chunkData.count)
             buffer.writeBytes(chunkData)
             let frame = WebSocketFrame(fin: true, opcode: .binary, data: buffer)
             context.writeAndFlush(wrapOutboundOut(frame), promise: nil)
             Logger.debug("Sent \(chunkData.count) bytes for stream \(streamId) at offset \(offset)")
         } else {
-            Logger.error("readChunk returned empty data for stream \(streamId)")
-            sendError(context: context, message: "Failed to read from stream: \(streamId)")
+            // Don't send error message when data is empty - this indicates end of stream
+            // Matches Java server behavior where no message is sent for empty data
+            Logger.debug("No data available for stream \(streamId) at offset \(offset)")
         }
     }
     

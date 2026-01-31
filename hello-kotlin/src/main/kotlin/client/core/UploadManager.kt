@@ -23,7 +23,7 @@ object UploadManager {
 
         // Wait for START_ACK (response type is "STARTED" or "started")
         val startAck = ws.receiveText()
-        if (startAck == null || !(startAck.contains("\"type\":\"STARTED\"") || startAck.contains("\"type\":\"started\""))) {
+        if (!(startAck.contains("\"type\":\"STARTED\"") || startAck.contains("\"type\":\"started\""))) {
             Logger.error("Unexpected response: $startAck")
             throw Exception("Failed to receive START_ACK")
         }
@@ -55,7 +55,7 @@ object UploadManager {
 
         // Wait for STOP_ACK (response type is "STOPPED" or "stopped")
         val stopAck = ws.receiveText()
-        if (stopAck == null || !(stopAck.contains("\"type\":\"STOPPED\"") || stopAck.contains("\"type\":\"stopped\""))) {
+        if (!(stopAck.contains("\"type\":\"STOPPED\"") || stopAck.contains("\"type\":\"stopped\""))) {
             Logger.error("Unexpected response: $stopAck")
             throw Exception("Failed to receive STOP_ACK")
         }

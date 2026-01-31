@@ -45,6 +45,21 @@ application {
     mainClass.set("MainKt")
 }
 
+// Server application configuration
+tasks.create<JavaExec>("runServerExe") {
+    group = "application"
+    description = "Run the audio stream server as executable"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("server.MainKt")
+    args = listOf("--port", "8080", "--path", "/audio")
+}
+
+// Client application configuration (for gradle run)
+tasks.named<JavaExec>("run") {
+    mainClass.set("MainKt")
+    args = listOf("--input", "../audio/input/hello.mp3", "--server", "ws://localhost:8080/audio")
+}
+
 kotlin {
     jvmToolchain(21)
 }

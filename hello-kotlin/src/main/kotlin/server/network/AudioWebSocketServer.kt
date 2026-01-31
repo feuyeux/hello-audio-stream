@@ -11,9 +11,10 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
+import kotlinx.serialization.json.Json
 import server.Logger
 import server.handler.WebSocketMessageHandler
-import server.handler.WebSocketMessage
+import WebSocketMessage
 import server.memory.StreamManager
 import server.memory.MemoryPoolManager
 import kotlin.time.Duration.Companion.seconds
@@ -33,6 +34,7 @@ class AudioWebSocketServer(
     private val messageHandler: WebSocketMessageHandler = WebSocketMessageHandler(this.streamManager)
     private val clients = ConcurrentHashMap<DefaultWebSocketSession, Long>()
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
+    private val jsonParser = Json { ignoreUnknownKeys = true }
 
     init {
         Logger.info("AudioWebSocketServer initialized on port $port$path")
@@ -106,39 +108,49 @@ class AudioWebSocketServer(
      */
     private suspend fun handleTextMessage(session: DefaultWebSocketSession, clientId: Long, message: String) {
         Logger.debug("Received text message: $message")
-        
-        // Check message type
-        val messageType = parseSimpleJson(message)["type"] as? String
-        
-        when (messageType?.lowercase()) {
-            "GET" -> {
-                // Handle GET request - read and send binary data
-                val streamId = parseSimpleJson(message)["streamId"] as? String
-                val offset = (parseSimpleJson(message)["offset"] as? Number)?.toLong() ?: 0
-                val length = (parseSimpleJson(message)["length"] as? Number)?.toInt() ?: 65536
-                
+
+        // Parse message type using proper JSON parsing
+        try {
+            val data = parseWebSocketMessage(message)
+            val messageType = data.type
+
+            // Handle GET request directly (binary data response)
+            if (messageType.equals("GET", ignoreCase = true)) {
+                val streamId = data.streamId
+                val offset = data.offset ?: 0
+                val length = data.length ?: 65536
+
                 if (streamId != null) {
-                    val data = streamManager.readChunk(streamId, offset, length)
-                    if (data.isNotEmpty()) {
-                        sendBinary(session, data)
-                        Logger.info("Sent ${data.size} bytes for stream $streamId at offset $offset")
+                    val readData = streamManager.readChunk(streamId, offset, length)
+                    if (readData.isNotEmpty()) {
+                        sendBinary(session, readData)
+                        Logger.info("Sent ${readData.size} bytes for stream $streamId at offset $offset")
                     } else {
                         sendError(session, "No data available at offset $offset")
                     }
                 } else {
-                    sendError(session, "Missing streamId in get request")
+                    sendError(session, "Missing streamId in GET request")
                 }
-            }
-            else -> {
-                // Handle other messages through message handler
+            } else {
+                // Handle other messages through message handler (START, STOP, etc.)
                 messageHandler.handleTextMessage(
                     clientId,
                     message,
-                    { data -> sendJson(session, data) },
+                    { msg -> sendJson(session, msg) },
                     { msg -> sendError(session, msg) }
                 )
             }
+        } catch (e: Exception) {
+            Logger.error("Error parsing message: ${e.message}")
+            sendError(session, "Invalid message format")
         }
+    }
+
+    /**
+     * Parse JSON string to WebSocketMessage.
+     */
+    private fun parseWebSocketMessage(json: String): WebSocketMessage {
+        return jsonParser.decodeFromString<WebSocketMessage>(json)
     }
     
     /**
@@ -182,7 +194,7 @@ class AudioWebSocketServer(
      */
     private suspend fun sendJson(session: DefaultWebSocketSession, data: WebSocketMessage) {
         try {
-            val json = toJson(data)
+            val json = jsonParser.encodeToString(data)
             session.send(Frame.Text(json))
             Logger.debug("Sent JSON to client: $json")
         } catch (e: Exception) {
@@ -211,30 +223,5 @@ class AudioWebSocketServer(
         } catch (e: Exception) {
             Logger.error("Error sending binary data: ${e.message}")
         }
-    }
-
-    /**
-     * Simple JSON serializer (placeholder).
-     * In production, use a proper JSON library.
-     */
-    private fun toJson(message: WebSocketMessage): String {
-        val sb = StringBuilder()
-        sb.append("{\"type\":\"${message.type}\"")
-
-        if (message.streamId != null) {
-            sb.append(",\"streamId\":\"${message.streamId}\"")
-        }
-        if (message.offset != null) {
-            sb.append(",\"offset\":${message.offset}")
-        }
-        if (message.length != null) {
-            sb.append(",\"length\":${message.length}")
-        }
-        if (message.message != null) {
-            sb.append(",\"message\":\"${message.message}\"")
-        }
-        sb.append("}")
-
-        return sb.toString()
     }
 }

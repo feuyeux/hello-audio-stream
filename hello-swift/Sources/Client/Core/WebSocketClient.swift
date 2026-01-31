@@ -166,14 +166,23 @@ class WebSocketClient {
         return buffer
     }
 
-    func receiveText() async throws -> String? {
+    func receiveText(timeout: TimeInterval = 30, expectedType: String? = nil) async throws -> String? {
         for await text in textQueue.stream {
-            return text
+            // If expectedType is specified, filter messages by type
+            if let expected = expectedType {
+                if text.contains("\"type\":\"\(expected)\"") {
+                    return text
+                }
+                // Skip messages that don't match expected type (e.g., CONNECTED)
+                Logger.debug("Skipping non-matching message type, waiting for: \(expected)")
+            } else {
+                return text
+            }
         }
         return nil
     }
 
-    func receiveBinary() async throws -> Data? {
+    func receiveBinary(timeout: TimeInterval = 30) async throws -> Data? {
         for await data in binaryQueue.stream {
             return data
         }
@@ -343,29 +352,43 @@ private final class WebSocketFrameHandler: ChannelInboundHandler {
             let masked = (byte2 & 0x80) != 0
             var payloadLength = Int(byte2 & 0x7F)
 
-            // Check if we have enough data for the frame
-            if masked {
-                if payloadLength == 126 {
-                    guard buffer.readableBytes >= 2,
-                          let extendedLength = buffer.readInteger(endianness: .big, as: UInt16.self) else { break }
-                    payloadLength = Int(extendedLength)
-                } else if payloadLength == 127 {
-                    guard buffer.readableBytes >= 8,
-                          let extendedLength = buffer.readInteger(endianness: .big, as: UInt64.self) else { break }
-                    // Validate that the length fits in Int
-                    guard extendedLength <= Int.max else {
-                        Logger.error("Payload length too large: \(extendedLength)")
-                        context.close(promise: nil)
-                        return
-                    }
-                    payloadLength = Int(extendedLength)
+            Logger.debug("Frame header: byte1=0x\(String(byte1, radix: 16)), byte2=0x\(String(byte2, radix: 16)), fin=\(fin), opcode=0x\(String(opcode, radix: 16)), masked=\(masked), initialPayloadLength=\(payloadLength)")
+
+            // Read extended length for both masked and unmasked frames
+            if payloadLength == 126 {
+                Logger.debug("Payload length is 126, reading 2-byte extended length")
+                guard buffer.readableBytes >= 2,
+                      let extendedLength = buffer.readInteger(endianness: .big, as: UInt16.self) else {
+                    Logger.error("Failed to read extended length, readableBytes: \(buffer.readableBytes)")
+                    break
                 }
+                payloadLength = Int(extendedLength)
+                Logger.debug("Extended length 126, actual payload length: \(payloadLength)")
+            } else if payloadLength == 127 {
+                Logger.debug("Payload length is 127, reading 8-byte extended length")
+                guard buffer.readableBytes >= 8,
+                      let extendedLength = buffer.readInteger(endianness: .big, as: UInt64.self) else {
+                    Logger.error("Failed to read extended length, readableBytes: \(buffer.readableBytes)")
+                    break
+                }
+                // Validate that the length fits in Int
+                guard extendedLength <= Int.max else {
+                    Logger.error("Payload length too large: \(extendedLength)")
+                    context.close(promise: nil)
+                    return
+                }
+                payloadLength = Int(extendedLength)
+                Logger.debug("Extended length 127, actual payload length: \(payloadLength)")
             }
 
             // Check if we have enough data for payload and mask
             let maskSize = masked ? 4 : 0
-            guard buffer.readableBytes >= payloadLength + maskSize else {
+            let requiredBytes = payloadLength + maskSize
+            Logger.debug("Payload length: \(payloadLength), maskSize: \(maskSize), requiredBytes: \(requiredBytes), readableBytes: \(buffer.readableBytes)")
+
+            guard buffer.readableBytes >= requiredBytes else {
                 // Not enough data, put bytes back and wait
+                Logger.debug("Not enough data, waiting for more...")
                 buffer.moveReaderIndex(to: buffer.readerIndex - 2)
                 break
             }
@@ -381,6 +404,7 @@ private final class WebSocketFrameHandler: ChannelInboundHandler {
                     }
                     mask[i] = byte
                 }
+                Logger.debug("Mask: \(mask.map { String($0, radix: 16) }.joined(separator: " "))")
             }
 
             // Read payload
@@ -396,6 +420,8 @@ private final class WebSocketFrameHandler: ChannelInboundHandler {
                 }
             }
 
+            Logger.debug("Read payload: \(payload.count) bytes, remaining readable: \(buffer.readableBytes)")
+
             // Handle opcode
             switch opcode {
             case 0x01: // Text
@@ -405,7 +431,11 @@ private final class WebSocketFrameHandler: ChannelInboundHandler {
                 }
 
             case 0x02: // Binary
-                Logger.debug("Received binary data: \(payload.count) bytes")
+                // Log first few bytes for debugging
+                if payload.count > 0 {
+                    let hexPrefix = payload.prefix(16).map { String(format: "%02x", $0) }.joined(separator: " ")
+                    Logger.debug("Received binary data: \(payload.count) bytes, first 16 bytes: \(hexPrefix)")
+                }
                 binaryContinuation.yield(Data(payload))
 
             case 0x08: // Close
