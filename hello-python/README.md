@@ -1,10 +1,10 @@
 # Audio Stream Cache Client - Python Implementation
 
-Python implementation of the audio file transfer client using WebSocket protocol with asyncio.
+Python implementation of the audio stream cache client using WebSocket protocol with asyncio.
 
 ## Features
 
-- ✅ WebSocket-based file transfer with asyncio
+- ✅ WebSocket-based stream with asyncio
 - ✅ Chunked upload/download (8KB upload, 64KB download)
 - ✅ SHA-256 file verification
 - ✅ Performance monitoring

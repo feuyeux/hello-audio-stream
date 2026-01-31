@@ -1,10 +1,10 @@
 # Audio Stream Client - Go Implementation
 
-A high-performance audio file transfer client implemented in Go using goroutines and channels.
+A high-performance audio stream cache client implemented in Go using goroutines and channels.
 
 ## Features
 
-- WebSocket-based file transfer
+- WebSocket-based stream
 - 64KB chunked upload/download
 - SHA-256 integrity verification
 - Performance monitoring and reporting

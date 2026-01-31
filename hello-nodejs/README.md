@@ -1,10 +1,10 @@
 # Audio Stream Cache Client - Node.js Implementation
 
-Pure JavaScript implementation of the audio file transfer client using WebSocket protocol.
+Pure JavaScript implementation of the audio stream cache client using WebSocket protocol.
 
 ## Features
 
-- ✅ WebSocket-based file transfer
+- ✅ WebSocket-based stream
 - ✅ Chunked upload/download (8KB upload, 64KB download)
 - ✅ SHA-256 file verification
 - ✅ Performance monitoring

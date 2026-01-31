@@ -1,6 +1,6 @@
 using System;
 
-namespace AudioFileTransfer.Client.Core;
+namespace AudioStreamCache.Client.Core;
 
 /// <summary>
 /// Chunk manager for handling file chunking operations

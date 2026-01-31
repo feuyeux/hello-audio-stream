@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace AudioFileTransfer.Client.Util;
+namespace AudioStreamCache.Client.Util;
 
 /// <summary>
 /// Centralized error handling for the audio stream client.

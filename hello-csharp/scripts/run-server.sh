@@ -14,4 +14,4 @@ echo "Endpoint: $PATH_ENDPOINT"
 echo "Press Ctrl+C to stop"
 echo ""
 
-dotnet run --configuration Release --project AudioFileTransfer.csproj -- server "$PORT" "$PATH_ENDPOINT"
+dotnet run --configuration Release --project AudioStreamCache.csproj -- server "$PORT" "$PATH_ENDPOINT"

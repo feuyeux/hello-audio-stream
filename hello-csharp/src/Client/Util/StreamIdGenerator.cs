@@ -1,7 +1,7 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace AudioFileTransfer.Client.Util;
+namespace AudioStreamCache.Client.Util;
 
 /// <summary>
 /// Stream ID generator for creating unique stream identifiers

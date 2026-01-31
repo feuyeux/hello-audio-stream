@@ -1,9 +1,9 @@
 using System;
 using System.Threading.Tasks;
-using AudioFileTransfer.Client.Core;
-using AudioFileTransfer.Client.Util;
+using AudioStreamCache.Client.Core;
+using AudioStreamCache.Client.Util;
 
-namespace AudioFileTransfer.Client;
+namespace AudioStreamCache.Client;
 
 /// <summary>
 /// Audio client application entry point

@@ -1,9 +1,9 @@
 using System;
 using System.Text.Json;
 using System.Threading.Tasks;
-using AudioFileTransfer.Client.Util;
+using AudioStreamCache.Client.Util;
 
-namespace AudioFileTransfer.Client.Core;
+namespace AudioStreamCache.Client.Core;
 
 /// <summary>
 /// Upload manager for handling file uploads

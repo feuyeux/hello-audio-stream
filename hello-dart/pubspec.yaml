@@ -1,5 +1,5 @@
 name: hello_audio_stream
-description: Audio file transfer client using WebSocket
+description: Audio stream cache client using WebSocket
 version: 1.0.0
 
 environment:

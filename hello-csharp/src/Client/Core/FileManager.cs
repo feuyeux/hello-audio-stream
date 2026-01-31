@@ -3,7 +3,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
-namespace AudioFileTransfer.Client.Core;
+namespace AudioStreamCache.Client.Core;
 
 /// <summary>
 /// File operations manager

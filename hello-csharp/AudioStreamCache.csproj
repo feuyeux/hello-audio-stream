@@ -8,7 +8,7 @@
     <LangVersion>12.0</LangVersion>
     <AssemblyName>hello_audio_stream</AssemblyName>
     <RootNamespace>HelloAudioStream</RootNamespace>
-    <StartupObject>AudioFileTransfer.Program</StartupObject>
+    <StartupObject>AudioStreamCache.Program</StartupObject>
     <!-- Disable auto-generated assembly info to avoid CS0579 errors -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>

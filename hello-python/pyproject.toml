@@ -39,8 +39,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/feuyeux/audio-file-transfer"
-Repository = "https://github.com/feuyeux/audio-file-transfer"
+Homepage = "https://github.com/feuyeux/audio-stream-cache"
+Repository = "https://github.com/feuyeux/audio-stream-cache"
 
 [tool.setuptools.packages.find]
 where = ["src"]

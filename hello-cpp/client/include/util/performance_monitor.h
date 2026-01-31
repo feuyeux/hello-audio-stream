@@ -9,7 +9,7 @@
 namespace audio_stream {
 
 /**
- * Performance monitor for tracking transfer metrics
+ * Performance monitor for tracking stream metrics
  * Records timestamps and calculates throughput
  * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
  */

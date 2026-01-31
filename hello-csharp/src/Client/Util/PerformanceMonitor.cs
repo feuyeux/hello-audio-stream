@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 
-namespace AudioFileTransfer.Client.Util;
+namespace AudioStreamCache.Client.Util;
 
 /// <summary>
 /// Performance monitor for tracking upload and download performance

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace AudioFileTransfer;
+namespace AudioStreamCache;
 
 /// <summary>
 /// Configuration for the audio client

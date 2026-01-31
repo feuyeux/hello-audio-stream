@@ -1,15 +1,15 @@
-# Audio File Transfer - Java Implementation
+# Audio Stream Cache - Java Implementation
 
-This directory contains a Java implementation of an audio file transfer utility that supports both upload and download operations using WebSocket communication.
+This directory contains a Java implementation of an audio stream cache utility that supports both upload and download operations using WebSocket communication.
 
 ## Features
 
-- **Bi-directional Transfer**: Support for both uploading and downloading audio files
-- **Chunked Transfer**: Files are transferred in chunks (default 64KB) for efficient processing
+- **Bi-directional Stream**: Support for both uploading and downloading audio files
+- **Chunked Stream**: Files are streamed in chunks (default 64KB) for efficient processing
 - **WebSocket Communication**: Reusable WebSocket connection for low-latency streaming
 - **Automatic Reconnection**: Built-in retry mechanism for failed connections
 - **Error Handling**: Comprehensive error handling with retry logic
-- **Performance Metrics**: Detailed transfer statistics including throughput
+- **Performance Metrics**: Detailed stream statistics including throughput
 - **Modern Java Features**: Uses JDK 25 features like records and pattern matching
 
 ## Technical Stack

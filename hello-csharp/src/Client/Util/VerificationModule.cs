@@ -1,7 +1,7 @@
 using System.Threading.Tasks;
-using AudioFileTransfer.Client.Core;
+using AudioStreamCache.Client.Core;
 
-namespace AudioFileTransfer.Client.Util;
+namespace AudioStreamCache.Client.Util;
 
 /// <summary>
 /// File verification module for checking file integrity

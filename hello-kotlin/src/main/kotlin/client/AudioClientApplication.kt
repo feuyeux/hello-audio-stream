@@ -63,7 +63,7 @@ object AudioClientApplication {
             
             // Exit with appropriate code
             if (verification.passed) {
-                Logger.info("SUCCESS: File transfer completed successfully")
+                Logger.info("SUCCESS: Stream completed successfully")
                 exitProcess(0)
             } else {
                 Logger.error("FAILURE: File verification failed")

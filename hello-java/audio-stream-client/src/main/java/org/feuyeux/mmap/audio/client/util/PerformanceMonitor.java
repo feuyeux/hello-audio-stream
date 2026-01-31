@@ -9,7 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 /**
- * Performance monitor for tracking transfer metrics.
+ * Performance monitor for tracking stream metrics.
  * Records timestamps and calculates throughput.
  * Matches the C++ PerformanceMonitor interface.
  */

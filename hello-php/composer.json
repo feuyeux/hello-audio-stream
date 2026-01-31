@@ -1,6 +1,6 @@
 {
     "name": "hello-audio-stream/php",
-    "description": "Audio file transfer client using WebSocket",
+    "description": "Audio stream cache client using WebSocket",
     "type": "project",
     "require": {
         "php": ">=8.3",

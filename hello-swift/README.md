@@ -1,6 +1,6 @@
 # Swift Audio Stream Client
 
-A WebSocket-based audio file transfer client implemented in Swift with async/await.
+A WebSocket-based audio stream cache client implemented in Swift with async/await.
 
 ## Prerequisites
 

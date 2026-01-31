@@ -6,7 +6,7 @@ This is the C++ implementation of the Multi-Language Audio Stream Cache System, 
 
 - **WebSocket Communication**: Persistent bidirectional communication using websocketpp
 - **Memory-Mapped Files**: Zero-copy I/O using platform-specific mmap APIs
-- **Chunked Transfer**: 64KB chunks for efficient streaming
+- **Chunked Stream**: 64KB chunks for efficient streaming
 - **Concurrent Streams**: Support for multiple simultaneous streams
 - **Data Verification**: MD5/SHA-256 checksums for integrity checking
 - **Performance Metrics**: Detailed throughput and timing measurements

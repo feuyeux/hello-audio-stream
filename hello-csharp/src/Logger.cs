@@ -1,6 +1,6 @@
 using System;
 
-namespace AudioFileTransfer;
+namespace AudioStreamCache;
 
 /// <summary>
 /// Simple logger for the audio client

@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace AudioFileTransfer;
+namespace AudioStreamCache;
 
 /// <summary>
 /// Unified entry point for both server and client modes

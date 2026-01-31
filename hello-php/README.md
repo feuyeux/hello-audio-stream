@@ -1,6 +1,6 @@
 # PHP Audio Stream Client
 
-A WebSocket-based audio file transfer client implemented in PHP with ReactPHP.
+A WebSocket-based audio stream cache client implemented in PHP with ReactPHP.
 
 ## Prerequisites
 

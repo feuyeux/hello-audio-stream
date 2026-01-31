@@ -4,7 +4,7 @@ C# implementation of the audio stream cache client that uploads, downloads, and 
 
 ## Features
 
-- **Upload**: Transfer audio files to server in 8KB chunks
+- **Upload**: Stream audio files to server in 8KB chunks
 - **Download**: Retrieve audio files from server
 - **Verification**: SHA-256 checksum validation
 - **Performance Monitoring**: Upload/download throughput measurement
@@ -31,7 +31,7 @@ hello-csharp/
 │   ├── Download.cs         # Download manager
 │   ├── Verification.cs     # File integrity verification
 │   └── Performance.cs      # Performance monitoring
-├── AudioFileTransfer.csproj
+├── AudioStreamCache.csproj
 ├── build.sh                # Unix build script
 ├── build.ps1               # Windows build script
 ├── run-client.sh           # Unix run script
@@ -47,7 +47,7 @@ hello-csharp/
 - **FileManager**: Handles file I/O and SHA-256 computation
 - **Upload**: Coordinates file upload workflow
 - **Download**: Coordinates file download workflow
-- **Verification**: Verifies file integrity after transfer
+- **Verification**: Verifies file integrity after streaming
 - **PerformanceMonitor**: Tracks timing and calculates throughput
 
 ## mmap Implementation
@@ -235,7 +235,7 @@ The client outputs structured logs with timestamps:
 
 ## Modern C# Features Used
 
-- **Records**: Immutable data types for transfer results
+- **Records**: Immutable data types for stream results
 - **Async/Await**: Asynchronous programming model
 - **Span<T> and Memory<T>**: Efficient memory operations
 - **Nullable Reference Types**: Improved type safety
@@ -273,7 +273,7 @@ dotnet publish --runtime linux-x64 --no-self-contained
 To run performance benchmarks using BenchmarkDotNet:
 
 ```bash
-dotnet run --project AudioFileTransfer.Benchmarks --configuration Release
+dotnet run --project AudioStreamCache.Benchmarks --configuration Release
 ```
 
 Example benchmark results:
@@ -292,6 +292,6 @@ Example benchmark results:
 - **Resource Management**: Always dispose memory-mapped file objects to avoid resource leaks
 - **File Access**: Ensure proper file permissions when creating or accessing memory-mapped files
 - **Security**: Be cautious when mapping files from untrusted sources
-- **Memory Usage**: Monitor memory usage for large file transfers
+- **Memory Usage**: Monitor memory usage for large streams
 - **Exception Handling**: Implement comprehensive exception handling for all file and network operations
 - **Thread Safety**: Use proper synchronization for shared resources

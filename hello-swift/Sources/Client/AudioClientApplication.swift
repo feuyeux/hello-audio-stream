@@ -124,7 +124,7 @@ struct AudioStreamClient: ParsableCommand {
         
         // Exit with appropriate code
         if verification.passed {
-            Logger.info("SUCCESS: File transfer completed successfully")
+            Logger.info("SUCCESS: Stream completed successfully")
         } else {
             Logger.error("FAILURE: File verification failed")
             throw ExitCode.failure

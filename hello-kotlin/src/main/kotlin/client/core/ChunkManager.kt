@@ -1,7 +1,7 @@
 package client.core
 
 /**
- * Chunk management for file transfers
+ * Chunk management for file streams
  */
 object ChunkManager {
     const val UPLOAD_CHUNK_SIZE = 8192 // 8KB to avoid WebSocket frame fragmentation

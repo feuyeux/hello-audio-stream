@@ -1,6 +1,6 @@
 # Kotlin Audio Stream Client
 
-A WebSocket-based audio file transfer client implemented in Kotlin with coroutines.
+A WebSocket-based audio stream cache client implemented in Kotlin with coroutines.
 
 ## Prerequisites
 

@@ -5,8 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>12.0</LangVersion>
-    <AssemblyName>AudioFileTransfer.Tests</AssemblyName>
-    <RootNamespace>AudioFileTransfer.Tests</RootNamespace>
+    <AssemblyName>AudioStreamCache.Tests</AssemblyName>
+    <RootNamespace>AudioStreamCache.Tests</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
     <!-- Disable auto-generated assembly info to avoid CS0579 errors -->
@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AudioFileTransfer.csproj" />
+    <ProjectReference Include="..\AudioStreamCache.csproj" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace AudioFileTransfer;
+namespace AudioStreamCache;
 
 /// <summary>
 /// Command-line argument parser
@@ -87,7 +87,7 @@ public static class CliParser
     {
         Console.WriteLine("Audio Stream Cache Client - C# Implementation");
         Console.WriteLine();
-        Console.WriteLine("Usage: AudioFileTransfer [options]");
+        Console.WriteLine("Usage: AudioStreamCache [options]");
         Console.WriteLine();
         Console.WriteLine("Options:");
         Console.WriteLine("  --input <path>     Input audio file path (required)");
@@ -97,8 +97,8 @@ public static class CliParser
         Console.WriteLine("  --help, -h         Show this help message");
         Console.WriteLine();
         Console.WriteLine("Example:");
-        Console.WriteLine("  AudioFileTransfer --input audio/input/test.mp3");
-        Console.WriteLine("  AudioFileTransfer --input audio/input/test.mp3 --server ws://192.168.1.100:8080/audio");
-        Console.WriteLine("  AudioFileTransfer --input audio/input/test.mp3 --output /tmp/output.mp3 --verbose");
+        Console.WriteLine("  AudioStreamCache --input audio/input/test.mp3");
+        Console.WriteLine("  AudioStreamCache --input audio/input/test.mp3 --server ws://192.168.1.100:8080/audio");
+        Console.WriteLine("  AudioStreamCache --input audio/input/test.mp3 --output /tmp/output.mp3 --verbose");
     }
 }
