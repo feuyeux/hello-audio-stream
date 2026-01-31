@@ -27,4 +27,7 @@ echo "Starting Swift Client..."
 echo "Server: $SERVER_URI"
 echo "Input: $INPUT_FILE"
 
+# Wait a moment for server to be ready
+sleep 1
+
 exec "$CLIENT_BIN" --server "$SERVER_URI" --input "$INPUT_FILE"

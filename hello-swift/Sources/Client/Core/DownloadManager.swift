@@ -40,29 +40,13 @@ class DownloadManager {
 
             while retries < maxRetries {
                 do {
-                    // Try to receive data with a timeout
-                    receivedData = try await withThrowingTaskGroup(of: Data?.self) { group in
-                        // Task 1: Wait for binary data
-                        group.addTask {
-                            return try? await ws.receiveBinary()
-                        }
-
-                        // Task 2: Timeout
-                        group.addTask {
-                            try await Task.sleep(nanoseconds: 5_000_000_000)  // 5 seconds
-                            return nil  // Timeout
-                        }
-
-                        // Wait for first result
-                        let result = try await group.next()!
-                        group.cancelAll()
-                        return result
-                    }
+                    // Try to receive data
+                    receivedData = try await ws.receiveBinary()
 
                     if receivedData != nil {
                         break
                     } else {
-                        // Timeout occurred
+                        // No data received
                         Logger.warn("No data received at offset \(offset), retry \(retries + 1)/\(maxRetries)")
                         retries += 1
                         if retries < maxRetries {

@@ -239,11 +239,11 @@ private final class WebSocketUpgradeHandler: ChannelInboundHandler {
         switch state {
         case .waitingUpgrade:
             var buffer = unwrapInboundIn(data)
-            if let data = buffer.readString(length: buffer.readableBytes) {
-                responseBuffer += data
+            if let stringData = buffer.readString(length: buffer.readableBytes) {
+                responseBuffer += stringData
                 // Check if we have a complete HTTP response
                 if responseBuffer.contains("\r\n\r\n") {
-                    handleUpgradeResponse(context: context)
+                    handleUpgradeResponse(context: context, buffer: &buffer)
                 }
             }
 
@@ -253,13 +253,13 @@ private final class WebSocketUpgradeHandler: ChannelInboundHandler {
         }
     }
 
-    private func handleUpgradeResponse(context: ChannelHandlerContext) {
+    private func handleUpgradeResponse(context: ChannelHandlerContext, buffer: inout ByteBuffer) {
         guard let responseEnd = responseBuffer.range(of: "\r\n\r\n") else {
             return
         }
 
         let headerText = String(responseBuffer[responseBuffer.startIndex..<responseEnd.lowerBound])
-        responseBuffer = String(responseBuffer[responseEnd.upperBound...])
+        let remainingText = String(responseBuffer[responseEnd.upperBound...])
 
         // Parse HTTP response
         let lines = headerText.components(separatedBy: "\r\n")
@@ -294,12 +294,25 @@ private final class WebSocketUpgradeHandler: ChannelInboundHandler {
 
         // Upgrade successful - add WebSocket frame handler
         state = .websocketConnected
+        
+        // Create a new buffer with remaining data if any
+        var remainingBuffer: ByteBuffer? = nil
+        if !remainingText.isEmpty {
+            remainingBuffer = context.channel.allocator.buffer(capacity: remainingText.utf8.count)
+            remainingBuffer!.writeString(remainingText)
+        }
+        
         context.pipeline.addHandler(WebSocketFrameHandler(
             binaryContinuation: binaryContinuation,
             textContinuation: textContinuation
         ), position: .last).whenComplete { result in
             if case .success = result {
                 self.connectedPromise.succeed(())
+                
+                // Forward remaining data to WebSocket handler if any
+                if var remaining = remainingBuffer {
+                    context.fireChannelRead(NIOAny(remaining))
+                }
             } else {
                 self.failUpgrade(context: context, message: "Failed to add WebSocket handler")
             }
@@ -323,12 +336,14 @@ private final class WebSocketUpgradeHandler: ChannelInboundHandler {
 
 // MARK: - WebSocket Frame Handler
 
-private final class WebSocketFrameHandler: ChannelInboundHandler {
+private final class WebSocketFrameHandler: ChannelInboundHandler, RemovableChannelHandler {
     typealias InboundIn = ByteBuffer
-
+    typealias InboundOut = Never
+    
     private let binaryContinuation: AsyncStream<Data>.Continuation
     private let textContinuation: AsyncStream<String>.Continuation
-
+    private var accumulationBuffer: ByteBuffer?
+    
     init(
         binaryContinuation: AsyncStream<Data>.Continuation,
         textContinuation: AsyncStream<String>.Continuation
@@ -336,137 +351,169 @@ private final class WebSocketFrameHandler: ChannelInboundHandler {
         self.binaryContinuation = binaryContinuation
         self.textContinuation = textContinuation
     }
-
+    
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         var buffer = unwrapInboundIn(data)
-
-        while buffer.readableBytes >= 2 {
-            // Read frame header
-            guard let byte1 = buffer.readInteger(as: UInt8.self),
-                  let byte2 = buffer.readInteger(as: UInt8.self) else {
-                break
-            }
-
-            let fin = (byte1 & 0x80) != 0
-            let opcode = byte1 & 0x0F
-            let masked = (byte2 & 0x80) != 0
-            var payloadLength = Int(byte2 & 0x7F)
-
-            Logger.debug("Frame header: byte1=0x\(String(byte1, radix: 16)), byte2=0x\(String(byte2, radix: 16)), fin=\(fin), opcode=0x\(String(opcode, radix: 16)), masked=\(masked), initialPayloadLength=\(payloadLength)")
-
-            // Read extended length for both masked and unmasked frames
-            if payloadLength == 126 {
-                Logger.debug("Payload length is 126, reading 2-byte extended length")
-                guard buffer.readableBytes >= 2,
-                      let extendedLength = buffer.readInteger(endianness: .big, as: UInt16.self) else {
-                    Logger.error("Failed to read extended length, readableBytes: \(buffer.readableBytes)")
-                    break
-                }
-                payloadLength = Int(extendedLength)
-                Logger.debug("Extended length 126, actual payload length: \(payloadLength)")
-            } else if payloadLength == 127 {
-                Logger.debug("Payload length is 127, reading 8-byte extended length")
-                guard buffer.readableBytes >= 8,
-                      let extendedLength = buffer.readInteger(endianness: .big, as: UInt64.self) else {
-                    Logger.error("Failed to read extended length, readableBytes: \(buffer.readableBytes)")
-                    break
-                }
-                // Validate that the length fits in Int
-                guard extendedLength <= Int.max else {
-                    Logger.error("Payload length too large: \(extendedLength)")
-                    context.close(promise: nil)
-                    return
-                }
-                payloadLength = Int(extendedLength)
-                Logger.debug("Extended length 127, actual payload length: \(payloadLength)")
-            }
-
-            // Check if we have enough data for payload and mask
-            let maskSize = masked ? 4 : 0
-            let requiredBytes = payloadLength + maskSize
-            Logger.debug("Payload length: \(payloadLength), maskSize: \(maskSize), requiredBytes: \(requiredBytes), readableBytes: \(buffer.readableBytes)")
-
-            guard buffer.readableBytes >= requiredBytes else {
-                // Not enough data, put bytes back and wait
-                Logger.debug("Not enough data, waiting for more...")
-                buffer.moveReaderIndex(to: buffer.readerIndex - 2)
-                break
-            }
-
-            // Read mask if present
-            var mask: [UInt8] = []
-            if masked {
-                mask = [UInt8](repeating: 0, count: 4)
-                for i in 0..<4 {
-                    guard let byte = buffer.readInteger(as: UInt8.self) else {
-                        buffer.moveReaderIndex(to: buffer.readerIndex - 2)
-                        return
-                    }
-                    mask[i] = byte
-                }
-                Logger.debug("Mask: \(mask.map { String($0, radix: 16) }.joined(separator: " "))")
-            }
-
-            // Read payload
-            guard var payload = buffer.readBytes(length: payloadLength) else {
-                buffer.moveReaderIndex(to: buffer.readerIndex - 2)
+        
+        // Append to accumulation buffer if we have one
+        if var accumulated = accumulationBuffer {
+            accumulated.writeBuffer(&buffer)
+            accumulationBuffer = accumulated
+        } else {
+            accumulationBuffer = buffer
+        }
+        
+        // Try to decode frames from accumulated buffer
+        while var accumulated = accumulationBuffer, accumulated.readableBytes >= 2 {
+            let startIndex = accumulated.readerIndex
+            
+            // Try to decode one frame
+            switch tryDecodeFrame(context: context, buffer: &accumulated) {
+            case .success:
+                // Frame decoded successfully, update accumulation buffer
+                accumulationBuffer = accumulated.readableBytes > 0 ? accumulated : nil
+                
+            case .needMoreData:
+                // Not enough data, restore reader index and wait for more
+                accumulated.moveReaderIndex(to: startIndex)
+                accumulationBuffer = accumulated
                 return
-            }
-
-            // Unmask if needed
-            if masked {
-                for i in 0..<payload.count {
-                    payload[i] = payload[i] ^ mask[i % 4]
-                }
-            }
-
-            Logger.debug("Read payload: \(payload.count) bytes, remaining readable: \(buffer.readableBytes)")
-
-            // Handle opcode
-            switch opcode {
-            case 0x01: // Text
-                if let text = String(data: Data(payload), encoding: .utf8) {
-                    Logger.debug("Received: \(text)")
-                    textContinuation.yield(text)
-                }
-
-            case 0x02: // Binary
-                // Log first few bytes for debugging
-                if payload.count > 0 {
-                    let hexPrefix = payload.prefix(16).map { String(format: "%02x", $0) }.joined(separator: " ")
-                    Logger.debug("Received binary data: \(payload.count) bytes, first 16 bytes: \(hexPrefix)")
-                }
-                binaryContinuation.yield(Data(payload))
-
-            case 0x08: // Close
-                Logger.info("Server closed connection")
+                
+            case .error(let error):
+                Logger.error("Frame decoding error: \(error)")
                 context.close(promise: nil)
                 return
-
-            case 0x09: // Ping
-                sendPong(context: context, payload: payload)
-
-            case 0x0A: // Pong
-                // Ignore pong
-                break
-
-            default:
-                break
-            }
-
-            // If not fin, continue receiving fragmented frames
-            if !fin {
-                continue
             }
         }
     }
-
+    
+    private enum DecodeResult {
+        case success
+        case needMoreData
+        case error(String)
+    }
+    
+    private func tryDecodeFrame(context: ChannelHandlerContext, buffer: inout ByteBuffer) -> DecodeResult {
+        // Need at least 2 bytes for frame header
+        guard buffer.readableBytes >= 2 else {
+            return .needMoreData
+        }
+        
+        let startIndex = buffer.readerIndex
+        
+        // Read frame header
+        guard let byte1 = buffer.readInteger(as: UInt8.self),
+              let byte2 = buffer.readInteger(as: UInt8.self) else {
+            buffer.moveReaderIndex(to: startIndex)
+            return .needMoreData
+        }
+        
+        let fin = (byte1 & 0x80) != 0
+        let opcode = byte1 & 0x0F
+        let masked = (byte2 & 0x80) != 0
+        var payloadLength = Int(byte2 & 0x7F)
+        
+        // Read extended length if needed
+        if payloadLength == 126 {
+            guard buffer.readableBytes >= 2 else {
+                buffer.moveReaderIndex(to: startIndex)
+                return .needMoreData
+            }
+            let byte1 = buffer.readInteger(as: UInt8.self)!
+            let byte2 = buffer.readInteger(as: UInt8.self)!
+            payloadLength = Int((UInt16(byte1) << 8) | UInt16(byte2))
+        } else if payloadLength == 127 {
+            guard buffer.readableBytes >= 8 else {
+                buffer.moveReaderIndex(to: startIndex)
+                return .needMoreData
+            }
+            var extendedLength: UInt64 = 0
+            for _ in 0..<8 {
+                let byte = buffer.readInteger(as: UInt8.self)!
+                extendedLength = (extendedLength << 8) | UInt64(byte)
+            }
+            guard extendedLength <= Int.max else {
+                return .error("Payload length too large: \(extendedLength)")
+            }
+            payloadLength = Int(extendedLength)
+        }
+        
+        // Check if we have enough data for mask and payload
+        let maskSize = masked ? 4 : 0
+        let requiredBytes = maskSize + payloadLength
+        
+        guard buffer.readableBytes >= requiredBytes else {
+            buffer.moveReaderIndex(to: startIndex)
+            return .needMoreData
+        }
+        
+        // Read mask if present
+        var mask: [UInt8] = []
+        if masked {
+            for _ in 0..<4 {
+                mask.append(buffer.readInteger(as: UInt8.self)!)
+            }
+        }
+        
+        // Read payload
+        guard var payload = buffer.readBytes(length: payloadLength) else {
+            buffer.moveReaderIndex(to: startIndex)
+            return .needMoreData
+        }
+        
+        // Unmask if needed
+        if masked {
+            for i in 0..<payload.count {
+                payload[i] = payload[i] ^ mask[i % 4]
+            }
+        }
+        
+        Logger.debug("Decoded frame: opcode=0x\(String(opcode, radix: 16)), payload=\(payload.count) bytes")
+        
+        // Handle the frame
+        handleFrame(context: context, opcode: opcode, payload: payload, fin: fin)
+        
+        return .success
+    }
+    
+    private func handleFrame(context: ChannelHandlerContext, opcode: UInt8, payload: [UInt8], fin: Bool) {
+        switch opcode {
+        case 0x01: // Text
+            if let text = String(data: Data(payload), encoding: .utf8) {
+                Logger.debug("Received text: \(text)")
+                textContinuation.yield(text)
+            }
+            
+        case 0x02: // Binary
+            if payload.count > 0 {
+                let hexPrefix = payload.prefix(16).map { String(format: "%02x", $0) }.joined(separator: " ")
+                Logger.debug("Received binary data: \(payload.count) bytes, first 16 bytes: \(hexPrefix)")
+            }
+            binaryContinuation.yield(Data(payload))
+            
+        case 0x08: // Close
+            Logger.info("Server closed connection")
+            context.close(promise: nil)
+            
+        case 0x09: // Ping
+            sendPong(context: context, payload: payload)
+            
+        case 0x0A: // Pong
+            // Ignore pong
+            break
+            
+        default:
+            Logger.debug("Unknown opcode: 0x\(String(opcode, radix: 16))")
+            break
+        }
+    }
+    
     private func sendPong(context: ChannelHandlerContext, payload: [UInt8]) {
-        var buffer = context.channel.allocator.buffer(capacity: payload.count + 2)
+        var buffer = context.channel.allocator.buffer(capacity: payload.count + 10)
         buffer.writeInteger(UInt8(0x8A)) // Pong with FIN
         let len = payload.count
         if len < 126 {
-            buffer.writeInteger(UInt8(UInt8(len)))
+            buffer.writeInteger(UInt8(len))
         } else if len < 65536 {
             buffer.writeInteger(UInt8(126))
             buffer.writeInteger(UInt16(len))
@@ -477,12 +524,12 @@ private final class WebSocketFrameHandler: ChannelInboundHandler {
         buffer.writeBytes(payload)
         context.writeAndFlush(NIOAny(buffer), promise: nil)
     }
-
+    
     func channelInactive(context: ChannelHandlerContext) {
         binaryContinuation.finish()
         textContinuation.finish()
     }
-
+    
     func errorCaught(context: ChannelHandlerContext, error: Error) {
         Logger.error("WebSocket error: \(error)")
         context.close(promise: nil)
