@@ -107,7 +107,7 @@ class WebSocketMessage
      */
     public static function started(string $streamId, string $message = 'Stream started successfully'): self
     {
-        return new self('START_ACK', $streamId, null, null, $message);
+        return new self('STARTED', $streamId, null, null, $message);
     }
 
     /**
@@ -115,7 +115,7 @@ class WebSocketMessage
      */
     public static function stopped(string $streamId, string $message = 'Stream finalized successfully'): self
     {
-        return new self('STOP_ACK', $streamId, null, null, $message);
+        return new self('STOPPED', $streamId, null, null, $message);
     }
 
     /**

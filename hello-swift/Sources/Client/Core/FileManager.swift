@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import AudioStreamCommon
 
 /// File I/O operations
@@ -35,11 +36,9 @@ class AudioFileManager {
     }
     
     static func computeSha256(path: String) throws -> String {
-        // Note: CryptoKit is not available on Windows
-        // This is a simplified implementation for Windows
         let data = try Data(contentsOf: URL(fileURLWithPath: path))
-        var hash = data.hashValue
-        return String(format: "%016llx", hash)
+        let sha256 = SHA256.hash(data: data)
+        return sha256.map { String(format: "%02x", $0) }.joined()
     }
     
     static func getFileSize(path: String) throws -> Int64 {

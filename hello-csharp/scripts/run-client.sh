@@ -13,4 +13,4 @@ echo "Starting C# Client..."
 echo "Server: $SERVER_URI"
 echo "Input: $INPUT_FILE"
 
-dotnet run --configuration Release --project AudioFileTransfer.csproj -- --server "$SERVER_URI" --input "$INPUT_FILE"
+dotnet run --configuration Release --project AudioFileTransfer.csproj -- client --server "$SERVER_URI" --input "$INPUT_FILE"

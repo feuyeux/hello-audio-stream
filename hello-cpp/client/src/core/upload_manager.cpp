@@ -28,8 +28,8 @@ std::string UploadManager::uploadFile(const std::string &filePath) {
   }
   fileManager_.closeReader(); // Close immediately, will reopen later
 
-  // Generate unique stream ID
-  currentStreamId_ = streamIdGenerator_.generateStreamId();
+  // Generate unique stream ID (using short UUID format like Java)
+  currentStreamId_ = streamIdGenerator_.generateShort();
   spdlog::info("Generated stream ID: {}", currentStreamId_);
 
   // Start performance monitoring

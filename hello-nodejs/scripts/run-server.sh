@@ -26,4 +26,4 @@ if [ ! -d "cache" ]; then
 fi
 
 # Run server
-node src/server.js "$PORT" "$PATH_ENDPOINT"
+node src/server/main.js "$PORT" "$PATH_ENDPOINT"

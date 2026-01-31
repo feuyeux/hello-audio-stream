@@ -31,4 +31,4 @@ if [ ! -d "dist" ]; then
 fi
 
 # Run server
-node dist/server.js "$PORT" "$PATH_ENDPOINT"
+node dist/server/main.js "$PORT" "$PATH_ENDPOINT"

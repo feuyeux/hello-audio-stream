@@ -30,4 +30,4 @@ echo "Port: $PORT, Endpoint: $PATH_ENDPOINT"
 echo "Press Ctrl+C to stop"
 echo ""
 
-python -m src.audio_server.main "$PORT" "$PATH_ENDPOINT"
+python -m src.audio_server.main --port "$PORT" --path "$PATH_ENDPOINT"

@@ -1,4 +1,4 @@
-import 'dart:ffi';
+import 'dart:typed_data';
 import 'dart:io';
 import 'package:logging/logging.dart';
 
@@ -9,8 +9,7 @@ final _logger = Logger('MmapCache');
 
 class MmapCache {
   String _path;
-  RandomAccessFile? _file;
-  Pointer<Uint8>? _mmap;
+  Uint8List? _cache;
   int _size;
   bool _isOpen;
 
@@ -21,27 +20,25 @@ class MmapCache {
 
   Future<bool> create(String path, [int initialSize = 0]) async {
     try {
-      _logger.info('Creating mmap file: $path with initial size: $initialSize');
+      _logger
+          .info('Creating cache file: $path with initial size: $initialSize');
 
       final file = File(path);
       if (await file.exists()) {
         await file.delete();
       }
 
-      _file = await file.open(mode: FileMode.write);
+      _file = await file.open(mode: FileMode.append);
       if (initialSize > 0) {
-        await _file!.truncate(initialSize);
+        _cache = Uint8List(initialSize);
         _size = initialSize;
       } else {
+        _cache = Uint8List(0);
         _size = 0;
       }
 
-      if (_size > 0) {
-        await _mapFile();
-      }
-
       _isOpen = true;
-      _logger.info('Created mmap file: $path with size: $initialSize');
+      _logger.info('Created cache file: $path with size: $initialSize');
       return true;
     } catch (e) {
       _logger.severe('Error creating file $path: $e');
@@ -49,9 +46,11 @@ class MmapCache {
     }
   }
 
+  late RandomAccessFile _file;
+
   Future<bool> open(String path) async {
     try {
-      _logger.info('Opening mmap file: $path');
+      _logger.info('Opening cache file: $path');
 
       final file = File(path);
       if (!await file.exists()) {
@@ -59,15 +58,12 @@ class MmapCache {
         return false;
       }
 
-      _file = await file.open(mode: FileMode.readWrite);
+      _file = await file.open(mode: FileMode.append);
       _size = await file.length();
-
-      if (_size > 0) {
-        await _mapFile();
-      }
+      _cache = await file.readAsBytes();
 
       _isOpen = true;
-      _logger.info('Opened mmap file: $path with size: $_size');
+      _logger.info('Opened cache file: $path with size: $_size');
       return true;
     } catch (e) {
       _logger.severe('Error opening file $path: $e');
@@ -77,16 +73,21 @@ class MmapCache {
 
   Future<void> close() async {
     if (_isOpen) {
-      await _unmapFile();
-      _logger.info('Closed mmap file: $_path');
+      try {
+        await _file.close();
+      } catch (e) {
+        _logger.warning('Error closing file: $e');
+      }
+      _cache = null;
+      _logger.info('Closed cache file: $_path');
     }
   }
 
   Future<int> write(int offset, Uint8List data) async {
     try {
-      if (!_isOpen || _mmap == null) {
-        final initialSize = offset + data.length;
-        if (!await create(_path, initialSize)) {
+      if (!_isOpen) {
+        _logger.info('File not open, attempting to open: $_path');
+        if (!await open(_path)) {
           return 0;
         }
       }
@@ -99,23 +100,26 @@ class MmapCache {
         }
       }
 
-      if (_mmap != null) {
+      _file.setPositionSync(offset);
+      await _file.writeFrom(data);
+
+      if (_cache != null && _cache!.length >= requiredSize) {
         for (int i = 0; i < data.length; i++) {
-          _mmap![offset + i] = data[i];
+          _cache![offset + i] = data[i];
         }
       }
 
       _logger.info('Wrote ${data.length} bytes to $_path at offset $offset');
       return data.length;
     } catch (e) {
-      _logger.severe('Error writing to mapped file $_path: $e');
+      _logger.severe('Error writing to file $_path: $e');
       return 0;
     }
   }
 
   Future<Uint8List> read(int offset, int length) async {
     try {
-      if (!_isOpen || _mmap == null) {
+      if (!_isOpen) {
         _logger.info('File not open, attempting to open for reading: $_path');
         if (!await open(_path)) {
           _logger.severe('Failed to open file for reading: $_path');
@@ -129,20 +133,15 @@ class MmapCache {
         return Uint8List(0);
       }
 
+      _file.setPositionSync(offset);
       final actualLength =
           length < (_size - offset) ? length : (_size - offset);
-      final data = Uint8List(actualLength);
-
-      if (_mmap != null) {
-        for (int i = 0; i < actualLength; i++) {
-          data[i] = _mmap![offset + i];
-        }
-      }
+      final data = await _file.read(actualLength);
 
       _logger.info('Read $actualLength bytes from $_path at offset $offset');
       return data;
     } catch (e) {
-      _logger.severe('Error reading from mapped file $_path: $e');
+      _logger.severe('Error reading from file $_path: $e');
       return Uint8List(0);
     }
   }
@@ -170,15 +169,17 @@ class MmapCache {
         return true;
       }
 
-      await _unmapFile();
-      await _file!.truncate(newSize);
+      await _file.truncate(newSize);
       _size = newSize;
 
-      if (_size > 0) {
-        await _mapFile();
+      if (_cache != null) {
+        final newCache = Uint8List(newSize);
+        final copyLength = _cache!.length < newSize ? _cache!.length : newSize;
+        newCache.setRange(0, copyLength, _cache!.sublist(0, copyLength));
+        _cache = newCache;
       }
 
-      _logger.info('Resized and remapped file $_path to $newSize bytes');
+      _logger.info('Resized file $_path to $newSize bytes');
       return true;
     } catch (e) {
       _logger.severe('Error resizing file $_path: $e');
@@ -194,7 +195,7 @@ class MmapCache {
         return false;
       }
 
-      await _file?.flush();
+      await _file.flush();
       _logger.info('Flushed file: $_path');
       return true;
     } catch (e) {
@@ -221,29 +222,5 @@ class MmapCache {
       _logger.severe('Error finalizing file $_path: $e');
       return false;
     }
-  }
-
-  Future<void> _mapFile() async {
-    try {
-      if (_file != null && _size > 0) {
-        final data = await _file!.read(_size);
-        _mmap = data.cast<Uint8>();
-        _logger.info('Successfully mapped file: $_path ($_size bytes)');
-      }
-    } catch (e) {
-      _logger.severe('Error mapping file $_path: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> _unmapFile() async {
-    _mmap = null;
-
-    if (_file != null) {
-      await _file!.close();
-      _file = null;
-    }
-
-    _isOpen = false;
   }
 }

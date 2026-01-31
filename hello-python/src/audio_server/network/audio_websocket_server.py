@@ -6,6 +6,7 @@ Matches C++ WebSocketServer and Java AudioWebSocketServer functionality.
 
 import asyncio
 from typing import Set
+import websockets
 from websockets.asyncio.server import serve, ServerConnection
 from loguru import logger
 
@@ -32,7 +33,7 @@ class AudioWebSocketServer:
         self.host = host
         self.port = port
         self.path = path
-        self.clients: Set[WebSocketServerProtocol] = set()
+        self.clients: Set[ServerConnection] = set()
         self.stream_manager = StreamManager.get_instance()
         self.memory_pool = MemoryPoolManager.get_instance()
         self.message_handler = WebSocketMessageHandler(self.stream_manager)
@@ -42,16 +43,17 @@ class AudioWebSocketServer:
 
     async def start(self):
         """Start the WebSocket server"""
-        self.server = await websockets.serve(
+        self.server = await serve(
             self.handle_client,
             self.host,
             self.port,
             max_size=100 * 1024 * 1024,  # 100MB max message size
             ping_interval=20,
-            ping_timeout=20
+            ping_timeout=20,
         )
         logger.info(
-            f"WebSocket server started on ws://{self.host}:{self.port}{self.path}")
+            f"WebSocket server started on ws://{self.host}:{self.port}{self.path}"
+        )
 
     async def stop(self):
         """Stop the WebSocket server"""
