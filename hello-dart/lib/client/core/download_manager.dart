@@ -5,7 +5,7 @@ import '../../src/types.dart';
 import '../../src/logger.dart';
 
 /// Download manager
-class Download {
+class DownloadManager {
   static const int downloadChunkSize = 8192; // 8KB per GET request
 
   static Future<void> download(WebSocketClient ws, String streamId,

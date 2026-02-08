@@ -2,7 +2,7 @@ import '../../src/types.dart';
 import '../../src/logger.dart';
 
 /// Performance monitoring
-class Performance {
+class PerformanceMonitor {
   int _uploadStartMs = 0;
   int _uploadEndMs = 0;
   int _downloadStartMs = 0;

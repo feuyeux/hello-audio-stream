@@ -1,18 +1,61 @@
 /**
- * WebSocket message handler for processing client messages.
- * Handles START, STOP, and GET message types.
+ * WebSocket message handler using legacy protocol.
+ *
+ * Protocol:
+ * - Text messages: {"type":"START|STOP|GET", "streamId":"xxx", ...}
+ * - Binary frames: raw audio data
  */
 
-import {
-  WebSocketMessage,
-  MessageType,
-  getMessageType,
-} from "./WebSocketMessage.js";
+const MessageType = require("./MessageType");
+const WebSocketMessage = require("./WebSocketMessage");
 
-export class WebSocketMessageHandler {
+class WebSocketMessageHandler {
+  /**
+   * Create a WebSocketMessageHandler.
+   *
+   * @param {object} streamManager - StreamManager instance
+   */
   constructor(streamManager) {
     this.streamManager = streamManager;
-    this.activeStreams = new Map(); // Maps client to active streamId
+    this.connectionCounter = 0;
+  }
+
+  /**
+   * Handle a new WebSocket connection.
+   *
+   * @param {WebSocket} ws - WebSocket connection
+   * @param {object} req - HTTP request object
+   */
+  handleConnection(ws, req) {
+    const connectionId = `conn-${++this.connectionCounter}`;
+    const clientAddr = req.socket.remoteAddress || "unknown";
+    
+    console.log(`New connection established: ${connectionId} from ${clientAddr}`);
+
+    // Initialize connection state
+    ws.connectionId = connectionId;
+    ws.streamId = null;
+
+    // Send connection established message
+    this.sendResponse(ws, WebSocketMessage.connected(connectionId, "Connection established"));
+
+    // Set up message handler
+    ws.on("message", async (message) => {
+      await this.handleMessage(ws, message);
+    });
+
+    // Set up close handler
+    ws.on("close", () => {
+      console.log(`Connection closed: ${connectionId}`);
+      if (ws.streamId) {
+        console.log(`Cleaning up stream: ${ws.streamId}`);
+      }
+    });
+
+    // Set up error handler
+    ws.on("error", (error) => {
+      console.error(`Error on connection ${connectionId}:`, error);
+    });
   }
 
   /**
@@ -25,30 +68,14 @@ export class WebSocketMessageHandler {
     try {
       // Check if message is binary (audio data)
       if (Buffer.isBuffer(message)) {
-        // Check if it might be a text message sent as binary
-        if (message.length < 1000) {
-          try {
-            const text = message.toString("utf8");
-            const parsed = JSON.parse(text);
-            if (parsed.type) {
-              console.debug(
-                `Binary message is actually JSON control message, processing as text`,
-              );
-              await this.handleTextMessage(ws, text);
-              return;
-            }
-          } catch (e) {
-            // Not JSON, treat as binary
-          }
-        }
         await this.handleBinaryMessage(ws, message);
       } else {
         // Text message (JSON control message)
         await this.handleTextMessage(ws, message.toString());
       }
     } catch (error) {
-      console.error("Error handling message:", error);
-      this.sendError(ws, error.message);
+      console.error(`Error handling message for ${ws.connectionId}:`, error);
+      this.sendErrorResponse(ws, error.message);
     }
   }
 
@@ -60,32 +87,125 @@ export class WebSocketMessageHandler {
    */
   async handleTextMessage(ws, message) {
     try {
-      const msg = WebSocketMessage.fromJSON(message);
-      const msgType = getMessageType(msg.type);
+      const msg = WebSocketMessage.fromJson(message);
+      const messageType = msg.getMessageType();
 
-      if (msgType === null) {
+      if (!messageType) {
         console.warn(`Unknown message type: ${msg.type}`);
-        this.sendError(ws, `Unknown message type: ${msg.type}`);
+        this.sendErrorResponse(ws, `Unknown message type: ${msg.type}`);
         return;
       }
 
-      switch (msgType) {
+      console.debug(`Received ${messageType} message from ${ws.connectionId}`);
+
+      switch (messageType) {
         case MessageType.START:
-          await this.handleStart(ws, msg);
+          await this.handleStartMessage(ws, msg);
           break;
         case MessageType.STOP:
-          await this.handleStop(ws, msg);
+          await this.handleStopMessage(ws, msg);
           break;
         case MessageType.GET:
-          await this.handleGet(ws, msg);
+          await this.handleGetMessage(ws, msg);
           break;
         default:
-          console.warn(`Unhandled message type: ${msgType}`);
-          this.sendError(ws, `Unhandled message type: ${msgType}`);
+          console.warn(`Unhandled message type: ${messageType}`);
+          this.sendErrorResponse(ws, `Unhandled message type: ${messageType}`);
       }
     } catch (error) {
-      console.error("Invalid JSON message:", error);
-      this.sendError(ws, "Invalid JSON format");
+      console.error(`Error parsing JSON message from ${ws.connectionId}:`, error);
+      this.sendErrorResponse(ws, "Invalid JSON format");
+    }
+  }
+
+  /**
+   * Handle START message (create new stream).
+   *
+   * @param {WebSocket} ws - WebSocket connection
+   * @param {WebSocketMessage} msg - Message data
+   */
+  async handleStartMessage(ws, msg) {
+    let streamId = msg.streamId;
+    
+    if (!streamId || streamId.trim() === "") {
+      console.warn(`Start message missing streamId, using connectionId as streamId`);
+      streamId = ws.connectionId;
+    }
+
+    // Create stream in StreamManager
+    if (await this.streamManager.createStream(streamId)) {
+      ws.streamId = streamId;
+      console.log(`Stream started with ID: ${streamId} for connection: ${ws.connectionId}`);
+      this.sendResponse(ws, WebSocketMessage.started(streamId, "Stream started"));
+    } else {
+      console.error(`Failed to create stream: ${streamId}`);
+      this.sendErrorResponse(ws, "Failed to create stream");
+    }
+  }
+
+  /**
+   * Handle STOP message (finalize stream).
+   *
+   * @param {WebSocket} ws - WebSocket connection
+   * @param {WebSocketMessage} msg - Message data
+   */
+  async handleStopMessage(ws, msg) {
+    let streamId = msg.streamId;
+    
+    if (!streamId || streamId.trim() === "") {
+      streamId = ws.streamId;
+    }
+
+    if (!streamId) {
+      this.sendErrorResponse(ws, "No active stream to stop");
+      return;
+    }
+
+    // Finalize stream
+    if (await this.streamManager.finalizeStream(streamId)) {
+      console.log(`Stream stopped: ${streamId} for connection: ${ws.connectionId}`);
+      this.sendResponse(ws, WebSocketMessage.stopped(streamId, "Stream stopped"));
+      ws.streamId = null;
+    } else {
+      console.error(`Failed to finalize stream: ${streamId}`);
+      this.sendErrorResponse(ws, "Failed to finalize stream");
+    }
+  }
+
+  /**
+   * Handle GET message (read stream data).
+   *
+   * @param {WebSocket} ws - WebSocket connection
+   * @param {WebSocketMessage} msg - Message data
+   */
+  async handleGetMessage(ws, msg) {
+    const streamId = msg.streamId;
+    const offset = msg.offset;
+    const length = msg.length;
+
+    if (!streamId) {
+      this.sendErrorResponse(ws, "Missing streamId in get request");
+      return;
+    }
+
+    if (offset === null || offset === undefined || length === null || length === undefined) {
+      this.sendErrorResponse(ws, "Missing offset or length in get request");
+      return;
+    }
+
+    try {
+      // Read data from stream
+      const data = await this.streamManager.readChunk(streamId, offset, length);
+
+      if (data && data.length > 0) {
+        ws.send(data);
+        console.debug(`Sent ${data.length} bytes for stream: ${streamId} offset: ${offset}`);
+      } else {
+        this.sendErrorResponse(ws, `No data available at offset ${offset}`);
+      }
+    } catch (error) {
+      console.error(`Error processing get request for stream: ${streamId}`, error);
+      this.sendErrorResponse(ws, `Failed to retrieve data: ${error.message}`);
     }
   }
 
@@ -96,105 +216,32 @@ export class WebSocketMessageHandler {
    * @param {Buffer} data - Binary audio data
    */
   async handleBinaryMessage(ws, data) {
-    // Get active stream ID for this client
-    const streamId = this.activeStreams.get(ws);
-
-    if (!streamId) {
-      console.warn("Received binary data but no active stream for client");
+    if (!ws.streamId) {
+      console.warn(`Received binary data without active stream for connection: ${ws.connectionId}`);
+      this.sendErrorResponse(ws, "No active stream. Send start message first.");
       return;
     }
 
-    console.debug(
-      `Received ${data.length} bytes of binary data for stream ${streamId}`,
-    );
-
-    // Write to stream
-    await this.streamManager.writeChunk(streamId, data);
-  }
-
-  /**
-   * Handle START message (create new stream).
-   *
-   * @param {WebSocket} ws - WebSocket connection
-   * @param {WebSocketMessage} msg - Parsed message
-   */
-  async handleStart(ws, msg) {
-    const streamId = msg.streamId;
-    if (!streamId) {
-      this.sendError(ws, "Missing streamId");
-      return;
-    }
-
-    // Create stream
-    if (await this.streamManager.createStream(streamId)) {
-      // Register this client with the stream
-      this.activeStreams.set(ws, streamId);
-
-      const response = WebSocketMessage.started(streamId);
-      ws.send(response.toJSON());
-      console.log(`Stream started: ${streamId}`);
-    } else {
-      this.sendError(ws, `Failed to create stream: ${streamId}`);
+    try {
+      await this.streamManager.writeChunk(ws.streamId, data);
+      console.debug(`Wrote ${data.length} bytes to stream: ${ws.streamId}`);
+    } catch (error) {
+      console.error(`Error writing binary data for stream: ${ws.streamId}`, error);
+      this.sendErrorResponse(ws, `Failed to write data: ${error.message}`);
     }
   }
 
   /**
-   * Handle STOP message (finalize stream).
+   * Send a response message to client.
    *
    * @param {WebSocket} ws - WebSocket connection
-   * @param {WebSocketMessage} msg - Parsed message
+   * @param {WebSocketMessage} response - Response message
    */
-  async handleStop(ws, msg) {
-    const streamId = msg.streamId;
-    if (!streamId) {
-      this.sendError(ws, "Missing streamId");
-      return;
-    }
-
-    // Finalize stream
-    if (await this.streamManager.finalizeStream(streamId)) {
-      const response = WebSocketMessage.stopped(streamId);
-      ws.send(response.toJSON());
-      console.log(`Stream finalized: ${streamId}`);
-
-      // Unregister stream from client
-      this.activeStreams.delete(ws);
-    } else {
-      this.sendError(ws, `Failed to finalize stream: ${streamId}`);
-    }
-  }
-
-  /**
-   * Handle GET message (read stream data).
-   *
-   * @param {WebSocket} ws - WebSocket connection
-   * @param {WebSocketMessage} msg - Parsed message
-   */
-  async handleGet(ws, msg) {
-    const streamId = msg.streamId;
-    const offset = msg.offset !== null ? msg.offset : 0;
-    const length = msg.length !== null ? msg.length : 65536;
-
-    if (!streamId) {
-      this.sendError(ws, "Missing streamId");
-      return;
-    }
-
-    // Read data from stream
-    const chunkData = await this.streamManager.readChunk(
-      streamId,
-      offset,
-      length,
-    );
-
-    if (chunkData && chunkData.length > 0) {
-      // Send binary data
-      ws.send(chunkData);
-      console.debug(
-        `Sent ${chunkData.length} bytes for stream ${streamId} at offset ${offset}`,
-      );
-    } else {
-      this.sendError(ws, `Failed to read from stream: ${streamId}`);
+  sendResponse(ws, response) {
+    try {
+      ws.send(response.toJson());
+    } catch (error) {
+      console.error(`Error sending response to ${ws.connectionId}:`, error);
     }
   }
 
@@ -202,20 +249,17 @@ export class WebSocketMessageHandler {
    * Send an error message to client.
    *
    * @param {WebSocket} ws - WebSocket connection
-   * @param {string} message - Error message
+   * @param {string} errorMessage - Error message
    */
-  sendError(ws, message) {
-    const response = WebSocketMessage.error(message);
-    ws.send(response.toJSON());
-    console.error(`Sent error to client: ${message}`);
-  }
-
-  /**
-   * Clean up client connection.
-   *
-   * @param {WebSocket} ws - WebSocket connection
-   */
-  cleanupClient(ws) {
-    this.activeStreams.delete(ws);
+  sendErrorResponse(ws, errorMessage) {
+    try {
+      const error = WebSocketMessage.error(errorMessage);
+      ws.send(error.toJson());
+      console.error(`Sent error to ${ws.connectionId}: ${errorMessage}`);
+    } catch (error) {
+      console.error(`Error sending error response to ${ws.connectionId}:`, error);
+    }
   }
 }
+
+module.exports = WebSocketMessageHandler;

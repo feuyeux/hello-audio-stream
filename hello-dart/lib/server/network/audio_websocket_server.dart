@@ -13,6 +13,7 @@ import '../memory/stream_manager.dart';
 import '../memory/memory_pool_manager.dart';
 import '../handler/websocket_message_handler.dart';
 import '../../src/logger.dart';
+import '../../src/types.dart';
 
 /// WebSocket server for handling audio stream uploads and downloads.
 class AudioWebSocketServer {
@@ -44,6 +45,12 @@ class AudioWebSocketServer {
     // Create a WebSocket handler that handles all messages
     final wsHandler = webSocketHandler((WebSocketChannel ws, String? protocol) {
       Logger.info('Client connected');
+
+      // Send CONNECTED message
+      final connectionId = 'conn-${ws.hashCode}';
+      final connectedMsg = ControlMessage.connected(connectionId);
+      ws.sink.add(connectedMsg.toJson());
+      Logger.info('Sent CONNECTED message to client: $connectionId');
 
       // Handle messages from this client
       ws.stream.listen(

@@ -4,6 +4,8 @@ param(
     [string]$BuildType = "Release"
 )
 
+$ErrorActionPreference = 'Stop'
+
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
@@ -14,13 +16,13 @@ Write-Host "Building Rust Server ($BuildType)..." -ForegroundColor Cyan
 
 try {
     if ($BuildType -eq "Release") {
-        cargo build --release --bin audio_stream_server
+        cargo build --release --bin server
         Write-Host "Server build complete!" -ForegroundColor Green
-        Write-Host "Binary: target\release\audio_stream_server.exe" -ForegroundColor Green
+        Write-Host "Binary: target\release\server.exe" -ForegroundColor Green
     } else {
-        cargo build --bin audio_stream_server
+        cargo build --bin server
         Write-Host "Server build complete!" -ForegroundColor Green
-        Write-Host "Binary: target\debug\audio_stream_server.exe" -ForegroundColor Green
+        Write-Host "Binary: target\debug\server.exe" -ForegroundColor Green
     }
 } catch {
     Write-Host "Build failed: $_" -ForegroundColor Red

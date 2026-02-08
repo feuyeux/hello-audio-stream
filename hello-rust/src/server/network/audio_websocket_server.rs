@@ -64,6 +64,18 @@ impl AudioWebSocketServer {
 
                         println!("Client connected: {:?}", addr);
 
+                        // Send CONNECTED message
+                        let connected_msg = crate::server::handler::websocket_message_handler::ControlMessage {
+                            msg_type: "CONNECTED".to_string(),
+                            stream_id: Some(format!("conn-{}", client_id)),
+                            offset: None,
+                            length: None,
+                            message: Some("Connection established".to_string()),
+                        };
+                        if let Ok(json) = serde_json::to_string(&connected_msg) {
+                            let _ = websocket.send(Message::Text(json.into()));
+                        }
+
                         // Handle messages
                         loop {
                             match websocket.read() {

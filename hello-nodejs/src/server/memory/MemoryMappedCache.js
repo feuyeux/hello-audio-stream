@@ -1,11 +1,12 @@
 /**
  * Memory-mapped cache for efficient file I/O.
  * Provides write, read, resize, and finalize operations.
- * Matches Python MmapCache functionality.
+ * Matches C++ MemoryMappedCache and Java MemoryMappedCache.
+ * Follows the unified mmap implementation specification v2.0.0.
  */
 
 import fs from "fs";
-import path from "path";
+import mmap from "mmap-io";
 import * as logger from "../../logger.js";
 
 // Configuration constants - follows unified mmap specification v2.0.0
@@ -34,33 +35,32 @@ export class MemoryMappedCache {
   /**
    * Create a new memory-mapped file.
    *
-   * @param {string} filePath - Path to the file
    * @param {number} initialSize - Initial size in bytes
    * @returns {boolean} True if successful
    */
-  create(filePath, initialSize = 0) {
+  create(initialSize = 0) {
     try {
       // Remove existing file
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      if (fs.existsSync(this.path)) {
+        fs.unlinkSync(this.path);
       }
 
       // Create and open file
-      this.fileHandle = fs.openSync(filePath, "w+");
+      this.fileHandle = fs.openSync(this.path, "w+");
 
       if (initialSize > 0) {
-        // Write zeros to allocate space
-        const buffer = Buffer.alloc(initialSize);
-        fs.writeSync(this.fileHandle, buffer, 0, initialSize, 0);
+        fs.ftruncateSync(this.fileHandle, initialSize);
         this.size = initialSize;
+        this._mapFile();
       } else {
         this.size = 0;
       }
 
       this._isOpen = true;
+      logger.info(`Created mmap file: ${this.path} with size: ${initialSize}`);
       return true;
     } catch (error) {
-      logger.error(`Error creating file ${filePath}: ${error.message}`);
+      logger.error(`Error creating file ${this.path}: ${error.message}`);
       return false;
     }
   }
@@ -68,22 +68,28 @@ export class MemoryMappedCache {
   /**
    * Open an existing memory-mapped file.
    *
-   * @param {string} filePath - Path to the file
    * @returns {boolean} True if successful
    */
-  open(filePath) {
+  open() {
     try {
-      if (!fs.existsSync(filePath)) {
-        logger.error(`File does not exist: ${filePath}`);
+      if (!fs.existsSync(this.path)) {
+        logger.error(`File does not exist: ${this.path}`);
         return false;
       }
 
-      this.fileHandle = fs.openSync(filePath, "r+");
-      this.size = fs.statSync(filePath).size;
+      this.fileHandle = fs.openSync(this.path, "r+");
+      const stats = fs.fstatSync(this.fileHandle);
+      this.size = stats.size;
+
+      if (this.size > 0) {
+        this._mapFile();
+      }
+
       this._isOpen = true;
+      logger.info(`Opened mmap file: ${this.path} with size: ${this.size}`);
       return true;
     } catch (error) {
-      logger.error(`Error opening file ${filePath}: ${error.message}`);
+      logger.error(`Error opening file ${this.path}: ${error.message}`);
       return false;
     }
   }
@@ -93,10 +99,16 @@ export class MemoryMappedCache {
    */
   close() {
     if (this._isOpen && this.fileHandle !== null) {
-      fs.closeSync(this.fileHandle);
-      this.fileHandle = null;
-      this._isOpen = false;
-      this.buffer = null;
+      try {
+        // mmap-io cleanup is handled by GC or explicit buffer release if available
+        // but mostly we just close the FD
+        fs.closeSync(this.fileHandle);
+        this.fileHandle = null;
+        this._isOpen = false;
+        this.buffer = null;
+      } catch (error) {
+        logger.error(`Error closing file: ${error.message}`);
+      }
     }
   }
 
@@ -108,30 +120,31 @@ export class MemoryMappedCache {
    * @returns {number} Number of bytes written
    */
   write(offset, data) {
+    if (!this._isOpen || this.fileHandle === null) {
+      const initialSize = offset + data.length;
+      if (!this.create(initialSize)) {
+        return 0;
+      }
+    }
+
+    const requiredSize = offset + data.length;
+    if (requiredSize > this.size) {
+      if (!this.resize(requiredSize)) {
+        logger.error("Failed to resize file for write operation");
+        return 0;
+      }
+    }
+
     try {
-      if (!this._isOpen || this.fileHandle === null) {
-        const initialSize = offset + data.length;
-        if (!this.create(this.path, initialSize)) {
-          return 0;
-        }
+      if (this.buffer) {
+        data.copy(this.buffer, offset);
+        return data.length;
+      } else {
+        // Fallback or error state
+        logger.warn("Buffer not mapped, falling back to fs.write");
+        fs.writeSync(this.fileHandle, data, 0, data.length, offset);
+        return data.length;
       }
-
-      const requiredSize = offset + data.length;
-      if (requiredSize > this.size) {
-        if (!this.resize(requiredSize)) {
-          logger.error("Failed to resize file for write operation");
-          return 0;
-        }
-      }
-
-      const written = fs.writeSync(
-        this.fileHandle,
-        data,
-        0,
-        data.length,
-        offset,
-      );
-      return written;
     } catch (error) {
       logger.error(`Error writing to file ${this.path}: ${error.message}`);
       return 0;
@@ -146,37 +159,124 @@ export class MemoryMappedCache {
    * @returns {Buffer} Data read, or empty buffer on error
    */
   read(offset, length) {
-    try {
-      if (!this._isOpen || this.fileHandle === null) {
-        if (!this.open(this.path)) {
-          logger.error(`Failed to open file for reading: ${this.path}`);
-          return Buffer.alloc(0);
-        }
-      }
-
-      if (offset >= this.size) {
+    if (!this._isOpen || this.fileHandle === null) {
+      if (!this.open()) {
+        logger.error(`Failed to open file for reading: ${this.path}`);
         return Buffer.alloc(0);
       }
+    }
 
-      const actualLength = Math.min(length, this.size - offset);
-      const buffer = Buffer.alloc(actualLength);
-      const bytesRead = fs.readSync(
-        this.fileHandle,
-        buffer,
-        0,
-        actualLength,
-        offset,
-      );
+    if (offset >= this.size) {
+      return Buffer.alloc(0);
+    }
 
-      if (bytesRead < actualLength) {
-        return buffer.subarray(0, bytesRead);
+    const actualLength = Math.min(length, this.size - offset);
+
+    try {
+      if (this.buffer) {
+        const result = Buffer.alloc(actualLength);
+        this.buffer.copy(result, 0, offset, offset + actualLength);
+        logger.debug(`Read ${actualLength} bytes from ${this.path} at offset ${offset}`);
+        return result;
+      } else {
+        const buffer = Buffer.alloc(actualLength);
+        const bytesRead = fs.readSync(
+          this.fileHandle,
+          buffer,
+          0,
+          actualLength,
+          offset,
+        );
+        logger.debug(`Read ${bytesRead} bytes from ${this.path} at offset ${offset}`);
+        return buffer;
       }
-
-      return buffer;
     } catch (error) {
       logger.error(`Error reading from file ${this.path}: ${error.message}`);
       return Buffer.alloc(0);
     }
+  }
+
+  /**
+   * Resize the file to a new size.
+   *
+   * @param {number} newSize - New size in bytes
+   * @returns {boolean} True if successful
+   */
+  resize(newSize) {
+    if (!this._isOpen) {
+      logger.error(`File not open for resize: ${this.path}`);
+      return false;
+    }
+
+    if (newSize === this.size) {
+      return true;
+    }
+
+    try {
+      fs.ftruncateSync(this.fileHandle, newSize);
+      this.size = newSize;
+
+      // Re-map with new size
+      this._mapFile();
+
+      logger.info(`Resized file ${this.path} to ${newSize} bytes`);
+      return true;
+    } catch (error) {
+      logger.error(`Error resizing file ${this.path}: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Flush all data to disk.
+   *
+   * @returns {boolean} True if successful
+   */
+  flush() {
+    if (!this._isOpen || this.fileHandle === null) {
+      logger.warn(`File not open for flush: ${this.path}`);
+      return false;
+    }
+
+    try {
+      if (this.buffer) {
+        // mmap.sync(buffer, offset, length, blocking_sync, invalidate_pages)
+        mmap.sync(this.buffer, 0, this.size, true, false);
+      } else {
+        fs.fsyncSync(this.fileHandle);
+      }
+      logger.debug(`Flushed file: ${this.path}`);
+      return true;
+    } catch (error) {
+      logger.error(`Error flushing file ${this.path}: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Finalize the file to its final size.
+   *
+   * @param {number} finalSize - Final size in bytes
+   * @returns {boolean} True if successful
+   */
+  finalize(finalSize) {
+    if (!this._isOpen) {
+      logger.warn(`File not open for finalization: ${this.path}`);
+      return false;
+    }
+
+    if (!this.resize(finalSize)) {
+      logger.error(
+        `Failed to resize file during finalization: ${this.path}`,
+      );
+      return false;
+    }
+
+    // Sync to disk
+    this.flush();
+
+    logger.info(`Finalized file: ${this.path} with size: ${finalSize}`);
+    return true;
   }
 
   /**
@@ -207,87 +307,25 @@ export class MemoryMappedCache {
   }
 
   /**
-   * Resize the file to a new size.
-   *
-   * @param {number} newSize - New size in bytes
-   * @returns {boolean} True if successful
+   * Map the file into memory.
+   * @private
    */
-  resize(newSize) {
-    try {
-      if (!this._isOpen) {
-        logger.error(`File not open for resize: ${this.path}`);
-        return false;
-      }
-
-      if (newSize === this.size) {
-        return true;
-      }
-
-      if (newSize < this.size) {
-        // Truncate
-        fs.ftruncateSync(this.fileHandle, newSize);
-      } else {
-        // Expand - write zeros at the end
-        const buffer = Buffer.alloc(newSize - this.size);
-        fs.writeSync(this.fileHandle, buffer, 0, buffer.length, this.size);
-      }
-
-      this.size = newSize;
-      return true;
-    } catch (error) {
-      logger.error(`Error resizing file ${this.path}: ${error.message}`);
-      return false;
-    }
-  }
-
-  /**
-   * Flush all data to disk.
-   *
-   * @returns {boolean} True if successful
-   */
-  flush() {
-    try {
-      if (!this._isOpen || this.fileHandle === null) {
-        logger.warn(`File not open for flush: ${this.path}`);
-        return false;
-      }
-
-      fs.fsyncSync(this.fileHandle);
-      logger.debug(`Flushed file: ${this.path}`);
-      return true;
-    } catch (error) {
-      logger.error(`Error flushing file ${this.path}: ${error.message}`);
-      return false;
-    }
-  }
-
-  /**
-   * Finalize the file to its final size.
-   *
-   * @param {number} finalSize - Final size in bytes
-   * @returns {boolean} True if successful
-   */
-  finalize(finalSize) {
-    try {
-      if (!this._isOpen) {
-        logger.warn(`File not open for finalization: ${this.path}`);
-        return false;
-      }
-
-      if (!this.resize(finalSize)) {
-        logger.error(
-          `Failed to resize file during finalization: ${this.path}`,
+  _mapFile() {
+    if (this.fileHandle !== null && this.size > 0) {
+      try {
+        // mmap.map(size, protection, privacy, fd, offset, advise)
+        // PROT_READ | PROT_WRITE, MAP_SHARED
+        this.buffer = mmap.map(
+          this.size,
+          mmap.PROT_READ | mmap.PROT_WRITE,
+          mmap.MAP_SHARED,
+          this.fileHandle,
+          0
         );
-        return false;
+      } catch (error) {
+        logger.error(`Failed to map file: ${error.message}`);
+        this.buffer = null;
       }
-
-      // Sync to disk
-      fs.fsyncSync(this.fileHandle);
-
-      return true;
-    } catch (error) {
-      logger.error(`Error finalizing file ${this.path}: ${error.message}`);
-      return false;
     }
   }
 }

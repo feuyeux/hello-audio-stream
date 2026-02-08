@@ -22,6 +22,19 @@ class WebSocketClient {
     _messageQueue = StreamQueue<dynamic>(_socket!);
     Logger.info('Connected to server');
 
+    // Wait for and consume CONNECTED message
+    try {
+      final connectedMsg = await receiveText();
+      if (connectedMsg != null) {
+        final data = jsonDecode(connectedMsg);
+        if (data['type'] == 'CONNECTED') {
+          Logger.info('Received CONNECTED message from server');
+        }
+      }
+    } catch (e) {
+      // Ignore if no CONNECTED message
+    }
+
     // Add a small delay to ensure connection is fully established
     await Future.delayed(Duration(milliseconds: 100));
   }

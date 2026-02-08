@@ -58,11 +58,12 @@ public class WebSocketClient implements AutoCloseable {
             public void onMessage(String message) {
                 logger.debug("Received text message: {}", message);
                 
-                // Handle connection ID
-                if (message.contains("\"type\":\"connected\"")) {
-                    int idIndex = message.indexOf("\"connectionId\":\"");
+                // Handle CONNECTED message
+                if (message.contains("\"type\":\"CONNECTED\"") || message.contains("\"type\":\"connected\"")) {
+                    logger.info("Received CONNECTED message from server");
+                    int idIndex = message.indexOf("\"streamId\":\"");
                     if (idIndex != -1) {
-                        int start = idIndex + 16;
+                        int start = idIndex + 12;
                         int end = message.indexOf("\"", start);
                         connectionId.set(message.substring(start, end));
                         logger.info("Connection ID: {}", connectionId.get());

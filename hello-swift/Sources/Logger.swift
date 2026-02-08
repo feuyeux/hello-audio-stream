@@ -32,7 +32,11 @@ public class Logger {
         log(level: "error", message: message)
     }
     
+    private static let lock = NSLock()
+    
     private static func log(level: String, message: String) {
+        lock.lock()
+        defer { lock.unlock() }
         let timestamp = dateFormatter.string(from: Date())
         print("[\(timestamp)] [\(level)] \(message)")
     }

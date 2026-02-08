@@ -22,4 +22,4 @@ Write-Host "Endpoint: $PathEndpoint" -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
-python -m src.audio_server.main --port $Port --path $PathEndpoint
+python -m server.main --port $Port --path $PathEndpoint

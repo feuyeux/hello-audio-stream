@@ -15,15 +15,17 @@ public class Config
 
 /// <summary>
 /// Control message types
+/// All type values are uppercase as per protocol specification
 /// </summary>
 public enum MessageType
 {
-    Start,
-    Stop,
-    Get,
-    Started,
-    Stopped,
-    Error
+    START,
+    STARTED,
+    STOP,
+    STOPPED,
+    GET,
+    ERROR,
+    CONNECTED
 }
 
 /// <summary>

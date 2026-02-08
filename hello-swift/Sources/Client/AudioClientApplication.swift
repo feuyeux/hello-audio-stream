@@ -9,7 +9,7 @@ private final class WorkflowState: @unchecked Sendable {
 }
 
 /// Command-line argument parser
-struct AudioStreamClient: ParsableCommand {
+struct AudioClientApplication: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "audio_stream_client",
         abstract: "Audio Stream Client - Upload and download audio files via WebSocket"
@@ -86,7 +86,7 @@ struct AudioStreamClient: ParsableCommand {
         
         // Initialize performance monitor
         let performance = PerformanceMonitor()
-        let fileSize = try AudioFileManager.getFileSize(path: config.inputPath)
+        let fileSize = try FileManager.getFileSize(path: config.inputPath)
         performance.setFileSize(fileSize)
         
         // Connect to WebSocket server

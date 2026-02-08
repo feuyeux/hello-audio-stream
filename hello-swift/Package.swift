@@ -13,7 +13,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.80.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.6.0"),
     ],
     targets: [
@@ -24,16 +23,13 @@ let package = Package(
             sources: [
                 "Logger.swift",
                 "Types.swift",
+                "SHA1.swift",
             ]
         ),
         .executableTarget(
             name: "AudioStreamClient",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "NIOCore", package: "swift-nio"),
-                .product(name: "NIOPosix", package: "swift-nio"),
-                .product(name: "NIOHTTP1", package: "swift-nio"),
-                .product(name: "NIOWebSocket", package: "swift-nio"),
                 "AudioStreamCommon",
             ],
             path: "Sources",
@@ -55,10 +51,6 @@ let package = Package(
             name: "AudioStreamServer",
             dependencies: [
                 "AudioStreamCommon",
-                .product(name: "NIOCore", package: "swift-nio"),
-                .product(name: "NIOPosix", package: "swift-nio"),
-                .product(name: "NIOHTTP1", package: "swift-nio"),
-                .product(name: "NIOWebSocket", package: "swift-nio"),
                 .product(name: "Logging", package: "swift-log"),
             ],
             path: "Sources",
@@ -73,5 +65,4 @@ let package = Package(
             ]
         ),
     ],
-    swiftLanguageVersions: [.v6]
 )

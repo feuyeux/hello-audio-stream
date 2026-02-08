@@ -9,11 +9,17 @@
     "start:client": "node src/client/AudioClientApplication.js",
     "start:server": "node src/server/AudioServerApplication.js"
   },
-  "keywords": ["audio", "websocket", "mmap", "cache"],
+  "keywords": [
+    "audio",
+    "websocket",
+    "mmap",
+    "cache"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "ws": "^8.19.0",
-    "commander": "^14.0.0"
+    "commander": "^14.0.0",
+    "mmap-io": "^1.1.7"
   }
 }

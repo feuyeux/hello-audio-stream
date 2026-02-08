@@ -147,7 +147,7 @@ go build ./...
 ./run-client.sh --input ../audio/input/hello.mp3
 ```
 
-**mmap 实现:** 使用 `os.File` 模拟（非原生 mmap，为 Windows 兼容）
+**mmap 实现:** 使用 `syscall` 实现原生 Memory Mapping (Unix/Windows)
 
 ---
 
@@ -169,7 +169,7 @@ cd hello-csharp
 ./run-client.sh --input ../audio/input/hello.mp3
 ```
 
-**mmap 实现:** `System.IO.MemoryMappedFiles` 命名空间
+**mmap 实现:** `System.IO.MemoryMappedFiles.MemoryMappedFile`
 
 ---
 
@@ -191,7 +191,7 @@ cd hello-swift
 ./run-client.sh --input ../audio/input/hello.mp3
 ```
 
-**mmap 实现:** Foundation `FileHandle`（文件操作而非真正的 mmap）
+**mmap 实现:** 使用 `Darwin` 模块调用原生 `mmap` C API
 
 ---
 
@@ -213,7 +213,7 @@ cd hello-dart
 ./run-client.sh --input ../audio/input/hello.mp3
 ```
 
-**mmap 实现:** `dart:io` `RandomAccessFile`
+**mmap 实现:** 使用 `dart:ffi` 调用系统原生 `mmap`/`CreateFileMapping`
 
 ---
 
@@ -235,7 +235,7 @@ node src/server.js
 ./run-client.sh --input ../audio/input/hello.mp3
 ```
 
-**mmap 实现:** `mmap-io` npm 包
+**mmap 实现:** 使用 `FFI` 扩展调用原生系统 API
 
 ---
 
@@ -250,12 +250,18 @@ npm run build
 
 **运行服务端:**
 ```bash
-node dist/server.js
+./scripts/build-server.sh
+./scripts/build-client.sh
+```
+
+**运行服务端:**
+```bash
+./scripts/run-server.sh
 ```
 
 **运行客户端:**
 ```bash
-./run-client.sh --input ../audio/input/hello.mp3
+./scripts/run-client.sh --input ../audio/input/hello.mp3
 ```
 
 **mmap 实现:** 同 Node.js (`mmap-io`)
@@ -264,20 +270,21 @@ node dist/server.js
 
 ### PHP (hello-php)
 
-**安装依赖:**
+**编译:**
 ```bash
 cd hello-php
-./build.sh
+./scripts/build-server.sh
+./scripts/build-client.sh
 ```
 
 **运行服务端:**
 ```bash
-./run-server.sh
+./scripts/run-server.sh
 ```
 
 **运行客户端:**
 ```bash
-./run-client.sh --input ../audio/input/hello.mp3
+./scripts/run-client.sh --input ../audio/input/hello.mp3
 ```
 
 **mmap 实现:** 标准文件函数 `fopen/fread/fwrite`（非 mmap）
@@ -310,9 +317,8 @@ cd hello-php
 
 | 类型 | 语言 | 配置 |
 |------|------|------|
-| 原生 mmap | C++, Rust, Python | 8GB 缓存, 1GB 分段 |
-| JVM/CLR mmap | Java, Kotlin, C# | 8GB 缓存, 1GB 分段 |
-| 文件 I/O 模拟 | Go, Swift, Dart, Node.js, TypeScript, PHP | 8GB 缓存, 1GB 分段 |
+| 原生 mmap | C++, Rust, Python, Go, Swift, Node.js, TypeScript | 8GB 缓存, 1GB 分段 |
+| JVM/CLR/FFI | Java, Kotlin, C#, Dart, PHP | 8GB 缓存, 1GB 分段 |
 
 所有实现均遵循统一规范 v2.0.0：
 - **DEFAULT_PAGE_SIZE**: 64MB
@@ -321,9 +327,3 @@ cd hello-php
 - **BATCH_OPERATION_LIMIT**: 1000
 
 详细技术文档请参考 [doc/mmap.md](doc/mmap.md)
-                                 
-                                  
-  语言: Swift                                                                 
-  脚本: hello-swift/scripts/run-client.sh                                     
-  错误: Fatal error: WebSockets not supported by libcurl  
-  是否应该使用 SwiftNIO 原生 来实现？

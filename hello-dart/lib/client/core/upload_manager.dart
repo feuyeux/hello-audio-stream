@@ -6,7 +6,7 @@ import '../../src/types.dart';
 import '../../src/logger.dart';
 
 /// Upload manager
-class Upload {
+class UploadManager {
   static const int uploadChunkSize =
       8192; // 8KB to avoid WebSocket frame fragmentation
 

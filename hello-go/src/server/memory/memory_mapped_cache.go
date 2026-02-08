@@ -9,18 +9,18 @@ import (
 // Configuration constants for memory-mapped cache
 // Follows the unified mmap implementation specification v2.0.0
 const (
-	DefaultPageSize       int64 = 64 * 1024 * 1024           // 64MB
-	MaxCacheSize          int64 = 8 * 1024 * 1024 * 1024     // 8GB
-	SegmentSize           int64 = 1 * 1024 * 1024 * 1024     // 1GB per segment
-	BatchOperationLimit   int   = 1000                       // Max batch operations
+	DefaultPageSize     int64 = 64 * 1024 * 1024       // 64MB
+	MaxCacheSize        int64 = 8 * 1024 * 1024 * 1024 // 8GB
+	SegmentSize         int64 = 1 * 1024 * 1024 * 1024 // 1GB per segment
+	BatchOperationLimit int   = 1000                   // Max batch operations
 )
 
 // MemoryMappedCache manages memory-mapped file operations
-// Note: For Windows compatibility, we use file I/O instead of platform-specific mmap
 // Thread-safe with RWMutex for concurrent access
 type MemoryMappedCache struct {
 	path   string
 	file   *os.File
+	data   []byte       // Mapped memory slice
 	size   int64
 	isOpen bool
 	mu     sync.RWMutex // Protects all fields
@@ -31,6 +31,7 @@ func NewMemoryMappedCache(path string) *MemoryMappedCache {
 	return &MemoryMappedCache{
 		path:   path,
 		file:   nil,
+		data:   nil,
 		size:   0,
 		isOpen: false,
 	}
@@ -65,6 +66,13 @@ func (mmc *MemoryMappedCache) createInternal(initialSize int64) error {
 			return fmt.Errorf("failed to truncate file: %w", err)
 		}
 		mmc.size = initialSize
+		
+		// Map file
+		if err := mmc.mapFile(); err != nil {
+			return err
+		}
+	} else {
+		mmc.size = 0
 	}
 
 	return nil
@@ -96,6 +104,13 @@ func (mmc *MemoryMappedCache) openInternal() error {
 	mmc.file = file
 	mmc.size = stat.Size()
 	mmc.isOpen = true
+	
+	if mmc.size > 0 {
+		if err := mmc.mapFile(); err != nil {
+			return err
+		}
+	}
+	
 	return nil
 }
 
@@ -108,11 +123,18 @@ func (mmc *MemoryMappedCache) Close() error {
 
 // closeInternal closes cache file (internal, no lock)
 func (mmc *MemoryMappedCache) closeInternal() error {
-	if mmc.isOpen && mmc.file != nil {
-		err := mmc.file.Close()
-		mmc.file = nil
+	if mmc.isOpen {
+		if err := mmc.unmapFile(); err != nil {
+			fmt.Printf("Error unmapping file: %v\n", err)
+		}
+		
+		if mmc.file != nil {
+			err := mmc.file.Close()
+			mmc.file = nil
+			mmc.isOpen = false
+			return err
+		}
 		mmc.isOpen = false
-		return err
 	}
 	return nil
 }
@@ -131,26 +153,17 @@ func (mmc *MemoryMappedCache) Write(offset int64, data []byte) (int, error) {
 
 	requiredSize := offset + int64(len(data))
 	if requiredSize > mmc.size {
-		if err := mmc.file.Truncate(requiredSize); err != nil {
-			return 0, fmt.Errorf("failed to truncate file: %w", err)
+		if err := mmc.resizeInternal(requiredSize); err != nil {
+			return 0, err
 		}
-		mmc.size = requiredSize
 	}
 
-	// Write to file at offset
-	n, err := mmc.file.WriteAt(data, offset)
-	if err != nil {
-		return 0, fmt.Errorf("failed to write data: %w", err)
-	}
-
-	if offset+int64(n) > mmc.size {
-		mmc.size = offset + int64(n)
-	}
-
+	// Write to memory map
+	n := copy(mmc.data[offset:], data)
 	return n, nil
 }
 
-// Read reads data from specified offset
+// Read reads data from specified offset. It handles auto-opening the file if it's not already open.
 func (mmc *MemoryMappedCache) Read(offset int64, length int) ([]byte, error) {
 	mmc.mu.Lock()
 	defer mmc.mu.Unlock()
@@ -170,14 +183,11 @@ func (mmc *MemoryMappedCache) Read(offset int64, length int) ([]byte, error) {
 		actualLength = int(mmc.size - offset)
 	}
 
-	// Read from file at offset
+	// Read from memory map
 	data := make([]byte, actualLength)
-	n, err := mmc.file.ReadAt(data, offset)
-	if err != nil {
-		return nil, fmt.Errorf("read error: %w", err)
-	}
+	copy(data, mmc.data[offset:offset+int64(actualLength)])
 
-	return data[:n], nil
+	return data, nil
 }
 
 // Resize resizes cache file
@@ -197,11 +207,24 @@ func (mmc *MemoryMappedCache) resizeInternal(newSize int64) error {
 		return nil
 	}
 
+	// Unmap first
+	if err := mmc.unmapFile(); err != nil {
+		return err
+	}
+
 	if err := mmc.file.Truncate(newSize); err != nil {
 		return fmt.Errorf("failed to truncate file: %w", err)
 	}
 
 	mmc.size = newSize
+	
+	// Remap
+	if newSize > 0 {
+		if err := mmc.mapFile(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -214,6 +237,13 @@ func (mmc *MemoryMappedCache) Flush() error {
 		return fmt.Errorf("file not open for flush: %s", mmc.path)
 	}
 
+	if mmc.data != nil {
+		if err := mflush(mmc.data); err != nil {
+			return err
+		}
+	}
+	
+	// Also sync file metadata
 	if err := mmc.file.Sync(); err != nil {
 		return fmt.Errorf("failed to sync file: %w", err)
 	}
@@ -232,6 +262,13 @@ func (mmc *MemoryMappedCache) Finalize(finalSize int64) error {
 
 	if err := mmc.resizeInternal(finalSize); err != nil {
 		return err
+	}
+	
+	// Flush
+	if mmc.data != nil {
+		if err := mflush(mmc.data); err != nil {
+			return err
+		}
 	}
 
 	// Sync to disk
@@ -259,4 +296,24 @@ func (mmc *MemoryMappedCache) IsOpen() bool {
 	mmc.mu.RLock()
 	defer mmc.mu.RUnlock()
 	return mmc.isOpen
+}
+
+// Helper methods
+
+func (mmc *MemoryMappedCache) mapFile() error {
+	data, err := mmap(mmc.file, mmc.size)
+	if err != nil {
+		return err
+	}
+	mmc.data = data
+	return nil
+}
+
+func (mmc *MemoryMappedCache) unmapFile() error {
+	if mmc.data != nil {
+		err := munmap(mmc.data)
+		mmc.data = nil
+		return err
+	}
+	return nil
 }

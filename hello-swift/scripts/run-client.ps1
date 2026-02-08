@@ -1,9 +1,4 @@
 # Run Client - Swift Implementation (Windows PowerShell)
-param(
-    [string]$ServerUri = "ws://localhost:8080/audio",
-    [string]$InputFile = "..\audio\input\hello.mp3",
-    [string]$OutputFile
-)
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
@@ -11,20 +6,31 @@ chcp 65001 | Out-Null
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-$ClientBin = ".build\release\audio_stream_client.exe"
+# Set Swift Paths
+$SwiftPath = "D:\zoo\swift6.2.3\Toolchains\6.2.3+Asserts\usr\bin"
+# Note: Runtime path might be different or needed in PATH
+$RuntimePath = "D:\zoo\swift6.2.3\Runtimes\6.2.3\usr\bin"
 
-if (-not (Test-Path $ClientBin)) {
-    Write-Host "Client not found. Building..." -ForegroundColor Yellow
-    & "$PSScriptRoot\build-client.ps1"
+if (-not (Test-Path $SwiftPath)) {
+    Write-Host "Error: Swift 6.2.3 Toolchain not found at $SwiftPath" -ForegroundColor Red
+    exit 1
 }
 
-Write-Host "Starting Swift Client..." -ForegroundColor Green
-Write-Host "Server: $ServerUri" -ForegroundColor Green
-Write-Host "Input: $InputFile" -ForegroundColor Green
+# Add Swift to PATH
+$env:Path = "$SwiftPath;$RuntimePath;$env:Path"
 
-$clientArgs = @("--server", $ServerUri, "--input", $InputFile)
-if ($OutputFile) {
-    $clientArgs += @("--output", $OutputFile)
+# Run Client
+$ClientExe = ".build\release\audio_stream_client.exe"
+
+if (-not (Test-Path $ClientExe)) {
+    Write-Host "Client executable not found at $ClientExe. Please run build-client.ps1 first." -ForegroundColor Red
+    exit 1
 }
 
-& $ClientBin @clientArgs
+# Ensure test file exists
+if (-not (Test-Path "test_input.txt")) {
+    Set-Content -Path "test_input.txt" -Value "Hello Audio Stream Test Data"
+}
+
+Write-Host "Starting Swift Audio Stream Client..." -ForegroundColor Green
+& $ClientExe --input test_input.txt --output received_output.txt --server ws://localhost:8080/audio --verbose

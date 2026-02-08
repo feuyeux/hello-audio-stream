@@ -25,4 +25,4 @@ if ($OutputFile) {
     $clientArgs += @("--output", $OutputFile)
 }
 
-npx ts-node src/index.ts @clientArgs
+npx ts-node src/client/audio-client-application.ts @clientArgs

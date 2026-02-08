@@ -28,7 +28,7 @@ export class WebSocketClient {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(this.uri);
 
-      this.ws.on("open", () => {
+      this.ws.on("open", async () => {
         // Set up message handler
         this.ws!.on("message", (data: WebSocket.Data) => {
           if (this.messageWaiters.length > 0) {
@@ -38,7 +38,19 @@ export class WebSocketClient {
             this.messageQueue.push(data);
           }
         });
-        resolve();
+        
+        // Wait for and consume CONNECTED message
+        setTimeout(async () => {
+          try {
+            const connectedMsg = await this.receiveControlMessage();
+            if (connectedMsg.type === "CONNECTED") {
+              console.log("Received CONNECTED message from server");
+            }
+          } catch (error) {
+            // Ignore if no CONNECTED message
+          }
+          resolve();
+        }, 100);
       });
 
       this.ws.on("error", (error) => {

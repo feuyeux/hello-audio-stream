@@ -101,6 +101,16 @@ public class UploadManager {
 
             performanceMonitor.startUpload();
 
+            // Consume CONNECTED message if present
+            try {
+                String connectedMsg = client.waitForTextMessage(1000);
+                if (connectedMsg != null && (connectedMsg.contains("\"type\":\"CONNECTED\"") || connectedMsg.contains("\"type\":\"connected\""))) {
+                    logger.debug("Consumed CONNECTED message");
+                }
+            } catch (Exception e) {
+                // Ignore if no CONNECTED message
+            }
+
             // Send START message
             if (!sendStartMessage(streamId)) {
                 return "";

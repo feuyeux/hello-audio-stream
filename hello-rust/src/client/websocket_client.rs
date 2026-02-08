@@ -21,20 +21,6 @@ pub struct ControlMessage {
     pub message: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct StreamMessage {
-    #[serde(rename = "type")]
-    pub msg_type: String,
-    #[serde(rename = "streamId")]
-    pub stream_id: Option<String>,
-    #[serde(rename = "offset")]
-    pub offset: Option<u64>,
-    #[serde(rename = "length")]
-    pub length: Option<usize>,
-    #[serde(rename = "message")]
-    pub message: Option<String>,
-}
-
 pub struct WebSocketClient {
     stream: Option<WsStream>,
 }
@@ -52,6 +38,21 @@ impl WebSocketClient {
             .context(format!("Failed to connect to WebSocket server: {}", uri))?;
 
         self.stream = Some(stream);
+        
+        // Wait for and consume CONNECTED message
+        match tokio::time::timeout(std::time::Duration::from_secs(1), self.receive_control_message()).await {
+            Ok(Ok(msg)) if msg.msg_type.to_uppercase() == "CONNECTED" => {
+                crate::logger::log_info("Received CONNECTED message from server");
+            }
+            Ok(Ok(msg)) => {
+                // Received some other message, log it
+                crate::logger::log_debug(&format!("Received unexpected initial message: {:?}", msg));
+            }
+            _ => {
+                // Timeout or error, ignore
+            }
+        }
+        
         Ok(())
     }
 

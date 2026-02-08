@@ -11,25 +11,14 @@ import AudioStreamCommon
 import Foundation
 
 /// Stream manager for managing multiple concurrent streams.
-class StreamManager {
-    nonisolated(unsafe) private static var instance: StreamManager?
+class StreamManager: @unchecked Sendable {
+    static let shared = StreamManager()
     private let cacheDirectory: String
     private var streams: [String: StreamContext] = [:]
     private let lock = NSLock()
 
-    /// Get the singleton instance of StreamManager.
-    static func getInstance(cacheDirectory: String = "cache") -> StreamManager {
-        if let instance = instance {
-            return instance
-        }
-
-        let newInstance = StreamManager(cacheDirectory: cacheDirectory)
-        instance = newInstance
-        return newInstance
-    }
-
     /// Private constructor for singleton pattern.
-    private init(cacheDirectory: String) {
+    private init(cacheDirectory: String = "cache") {
         self.cacheDirectory = cacheDirectory
 
         // Create cache directory if it doesn't exist
@@ -61,7 +50,7 @@ class StreamManager {
 
         // Create memory-mapped cache file
         let mmapFile = MemoryMappedCache(path: cachePath)
-        if !mmapFile.create(filePath: cachePath, initialSize: 0) {
+        if !mmapFile.create(filePath: cachePath, initialSize: DEFAULT_PAGE_SIZE) {
             return false
         }
         context.mmapFile = mmapFile

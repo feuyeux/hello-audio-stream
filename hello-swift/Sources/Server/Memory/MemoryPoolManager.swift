@@ -12,27 +12,18 @@ import Foundation
 import AudioStreamCommon
 
 /// Memory pool manager singleton.
-class MemoryPoolManager {
-    nonisolated(unsafe) private static var instance: MemoryPoolManager?
+/// Memory pool manager singleton.
+class MemoryPoolManager: @unchecked Sendable {
+    static let shared = MemoryPoolManager()
+    
     private let bufferSize: Int
     private let poolSize: Int
     private var availableBuffers: [Data]
     private var totalBuffers: Int
     private let lock = NSLock()
 
-    /// Get the singleton instance of MemoryPoolManager.
-    static func getInstance(bufferSize: Int = 65536, poolSize: Int = 100) -> MemoryPoolManager {
-        if let instance = instance {
-            return instance
-        }
-
-        let newInstance = MemoryPoolManager(bufferSize: bufferSize, poolSize: poolSize)
-        instance = newInstance
-        return newInstance
-    }
-
     /// Private constructor for singleton pattern.
-    private init(bufferSize: Int, poolSize: Int) {
+    private init(bufferSize: Int = 65536, poolSize: Int = 100) {
         self.bufferSize = bufferSize
         self.poolSize = poolSize
         self.availableBuffers = []

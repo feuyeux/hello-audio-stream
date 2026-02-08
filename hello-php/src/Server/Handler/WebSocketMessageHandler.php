@@ -3,7 +3,7 @@
 /**
  * WebSocket message handler for processing client messages.
  * Handles START, STOP, GET, and binary messages.
- * Matches Java WebSocketMessageHandler functionality.
+ * Matches Java ControlMessageHandler functionality.
  */
 
 declare(strict_types=1);
@@ -18,13 +18,13 @@ use Ratchet\ConnectionInterface;
 /**
  * Message handler for WebSocket audio streaming protocol.
  */
-class WebSocketMessageHandler
+class ControlMessageHandler
 {
     private StreamManager $streamManager;
     private \WeakMap $activeStreams; // Maps client to active streamId
 
     /**
-     * Create a new WebSocketMessageHandler.
+     * Create a new ControlMessageHandler.
      *
      * @param StreamManager $streamManager Stream manager instance
      */
@@ -50,7 +50,7 @@ class WebSocketMessageHandler
                 // Try to parse as JSON
                 $data = json_decode($msg, true);
                 if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
-                    $wsMsg = WebSocketMessage::fromArray($data);
+                    $wsMsg = ControlMessage::fromArray($data);
                     $this->handleTextMessage($conn, $wsMsg);
                 } else {
                     // Not valid JSON, treat as binary
@@ -91,9 +91,9 @@ class WebSocketMessageHandler
      * Handle a text (JSON) control message.
      *
      * @param ConnectionInterface $conn Client connection
-     * @param WebSocketMessage $msg Parsed message
+     * @param ControlMessage $msg Parsed message
      */
-    private function handleTextMessage(ConnectionInterface $conn, WebSocketMessage $msg): void
+    private function handleTextMessage(ConnectionInterface $conn, ControlMessage $msg): void
     {
         $msgType = strtoupper($msg->type);
 
@@ -140,9 +140,9 @@ class WebSocketMessageHandler
      * Handle START message (create new stream).
      *
      * @param ConnectionInterface $conn Client connection
-     * @param WebSocketMessage $msg Parsed message
+     * @param ControlMessage $msg Parsed message
      */
-    private function handleStart(ConnectionInterface $conn, WebSocketMessage $msg): void
+    private function handleStart(ConnectionInterface $conn, ControlMessage $msg): void
     {
         $streamId = $msg->streamId ?? '';
         if ($streamId === '') {
@@ -155,7 +155,7 @@ class WebSocketMessageHandler
             // Register this client with the stream
             $this->registerStream($conn, $streamId);
 
-            $response = WebSocketMessage::started($streamId);
+            $response = ControlMessage::started($streamId);
             $this->sendMessage($conn, $response);
             Logger::info("Stream started: {$streamId}");
         } else {
@@ -167,9 +167,9 @@ class WebSocketMessageHandler
      * Handle STOP message (finalize stream).
      *
      * @param ConnectionInterface $conn Client connection
-     * @param WebSocketMessage $msg Parsed message
+     * @param ControlMessage $msg Parsed message
      */
-    private function handleStop(ConnectionInterface $conn, WebSocketMessage $msg): void
+    private function handleStop(ConnectionInterface $conn, ControlMessage $msg): void
     {
         $streamId = $msg->streamId ?? '';
         if ($streamId === '') {
@@ -179,7 +179,7 @@ class WebSocketMessageHandler
 
         // Finalize stream
         if ($this->streamManager->finalizeStream($streamId)) {
-            $response = WebSocketMessage::stopped($streamId);
+            $response = ControlMessage::stopped($streamId);
             $this->sendMessage($conn, $response);
             Logger::info("Stream finalized: {$streamId}");
 
@@ -194,9 +194,9 @@ class WebSocketMessageHandler
      * Handle GET message (read stream data).
      *
      * @param ConnectionInterface $conn Client connection
-     * @param WebSocketMessage $msg Parsed message
+     * @param ControlMessage $msg Parsed message
      */
-    private function handleGet(ConnectionInterface $conn, WebSocketMessage $msg): void
+    private function handleGet(ConnectionInterface $conn, ControlMessage $msg): void
     {
         $streamId = $msg->streamId ?? '';
         if ($streamId === '') {
@@ -220,12 +220,12 @@ class WebSocketMessageHandler
     }
 
     /**
-     * Send a WebSocketMessage to the client.
+     * Send a ControlMessage to the client.
      *
      * @param ConnectionInterface $conn Client connection
-     * @param WebSocketMessage $msg Message to send
+     * @param ControlMessage $msg Message to send
      */
-    private function sendMessage(ConnectionInterface $conn, WebSocketMessage $msg): void
+    private function sendMessage(ConnectionInterface $conn, ControlMessage $msg): void
     {
         $json = $msg->toJson();
         $conn->send($json);
@@ -253,7 +253,7 @@ class WebSocketMessageHandler
      */
     private function sendError(ConnectionInterface $conn, string $message): void
     {
-        $response = WebSocketMessage::error($message);
+        $response = ControlMessage::error($message);
         $this->sendMessage($conn, $response);
         Logger::error("Sent error to client: {$message}");
     }

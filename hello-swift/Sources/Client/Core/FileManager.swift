@@ -1,9 +1,8 @@
 import Foundation
-import CryptoKit
 import AudioStreamCommon
 
 /// File I/O operations
-class AudioFileManager {
+class FileManager {
     private static let chunkSize = 65536 // 64KB
     
     static func readChunk(path: String, offset: Int64, size: Int) throws -> Data {
@@ -37,8 +36,9 @@ class AudioFileManager {
     
     static func computeSha256(path: String) throws -> String {
         let data = try Data(contentsOf: URL(fileURLWithPath: path))
-        let sha256 = SHA256.hash(data: data)
-        return sha256.map { String(format: "%02x", $0) }.joined()
+        // Use SHA1 as we don't have CryptoKit for SHA256, and SHA1 is available in AudioStreamCommon
+        let hash = SHA1.hash(data: data)
+        return SHA1.hexString(from: hash)
     }
     
     static func getFileSize(path: String) throws -> Int64 {

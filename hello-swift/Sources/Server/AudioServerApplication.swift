@@ -1,3 +1,4 @@
+
 //
 //  AudioServerApplication.swift
 //  Audio Stream Server
@@ -6,11 +7,21 @@
 //
 
 import Foundation
+import AudioStreamCommon
+#if canImport(Dispatch)
 import Dispatch
+#endif
+#if os(Windows)
+import WinSDK
+#endif
 
 @main
 struct AudioServerApplication {
     static func main() {
+        #if os(Windows)
+        // Disable stdout buffering
+        setbuf(stdout, nil)
+        #endif
         // Parse command-line arguments
         var port = 8080
         var path = "/audio"
@@ -31,15 +42,19 @@ struct AudioServerApplication {
         print("Starting Audio Server on port \(port) with path \(path)")
 
         // Get singleton instances
-        let streamManager = StreamManager.getInstance()
-        let memoryPool = MemoryPoolManager.getInstance()
+        let streamManager = StreamManager.shared
+        let memoryPool = MemoryPoolManager.shared
+
+        // Enable verbose logging for debugging
+        Logger.setVerbose(true)
 
         // Create and start WebSocket server
         let server = AudioWebSocketServer(port: port, path: path,
                                   streamManager: streamManager,
                                   memoryPool: memoryPool)
 
-        // Handle graceful shutdown
+        // Handle graceful shutdown if possible
+        #if !os(Windows)
         let signalSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
         signalSource.setEventHandler {
             print("Shutting down server...")
@@ -47,11 +62,16 @@ struct AudioServerApplication {
             exit(0)
         }
         signalSource.resume()
+        #endif
 
         // Start server
+        Logger.info("DEBUG: Calling server.start()")
         server.start()
+        Logger.info("DEBUG: server.start() returned")
 
         // Keep running
-        dispatchMain()
+        Logger.info("Server running. Waiting for connections...")
+        let semaphore = DispatchSemaphore(value: 0)
+        semaphore.wait()
     }
 }

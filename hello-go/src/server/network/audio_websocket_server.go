@@ -1,9 +1,11 @@
 package network
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/feuyeux/hello-mmap/hello-go/src/logger"
 	"github.com/feuyeux/hello-mmap/hello-go/src/server/handler"
@@ -66,7 +68,21 @@ func (ws *AudioWebSocketServer) handleConnection(w http.ResponseWriter, r *http.
 	clientAddr := r.RemoteAddr
 	logger.Info(fmt.Sprintf("Client connected: %s", clientAddr))
 
-	// Register client
+	// Send CONNECTED message
+	connectionId := fmt.Sprintf("conn-%d", time.Now().UnixNano())
+	connectedMsg := handler.WebSocketMessage{
+		Type:     "CONNECTED",
+		StreamId: connectionId,
+		Message:  "Connection established",
+	}
+	connectedJson, _ := json.Marshal(connectedMsg)
+	if err := conn.WriteMessage(websocket.TextMessage, connectedJson); err != nil {
+		logger.Error(fmt.Sprintf("Failed to send CONNECTED message: %v", err))
+		return
+	}
+	logger.Info(fmt.Sprintf("Sent CONNECTED message to client: %s", connectionId))
+
+	// Handle messages
 	ws.clientsMutex.Lock()
 	ws.clients[conn] = ""
 	ws.clientsMutex.Unlock()

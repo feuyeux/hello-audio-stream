@@ -26,13 +26,8 @@ class DownloadManager {
 
             // Send GET message
             try await ws.sendText(
-                WebSocketMessage(
-                    type: MessageType.GET.rawValue,
-                    streamId: streamId,
-                    offset: offset,
-                    length: length,
-                    message: nil
-                ))
+                WebSocketMessage.get(streamId: streamId, offset: offset, length: length)
+            )
 
             // Receive binary data with timeout
             var receivedData: Data?

@@ -1,7 +1,7 @@
 plugins {
     java
-    kotlin("jvm") version "2.2.0"
-    kotlin("plugin.serialization") version "2.2.0"
+    kotlin("jvm") version "2.3.10"
+    kotlin("plugin.serialization") version "2.3.10"
     application
 }
 
@@ -61,7 +61,7 @@ tasks.named<JavaExec>("run") {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 }
 
 // Task to run server

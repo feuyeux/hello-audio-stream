@@ -59,8 +59,10 @@ export class AudioServerApplication {
   }
 }
 
+import { pathToFileURL } from "url";
+
 // Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   // Parse command line arguments
   let port = 8080;
   let path = "/audio";

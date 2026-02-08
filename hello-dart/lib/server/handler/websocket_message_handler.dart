@@ -8,14 +8,14 @@ import '../memory/stream_manager.dart';
 import '../../src/logger.dart';
 
 /// WebSocket message types
-class WebSocketMessage {
+class ControlMessage {
   String type;
   String? streamId;
   int? offset;
   int? length;
   String? message;
 
-  WebSocketMessage({
+  ControlMessage({
     required this.type,
     this.streamId,
     this.offset,
@@ -23,8 +23,8 @@ class WebSocketMessage {
     this.message,
   });
 
-  factory WebSocketMessage.fromJson(Map<String, dynamic> json) {
-    return WebSocketMessage(
+  factory ControlMessage.fromJson(Map<String, dynamic> json) {
+    return ControlMessage(
       type: json['type'] as String? ?? '',
       streamId: json['streamId'] as String?,
       offset: json['offset'] as int?,
@@ -59,7 +59,7 @@ class WebSocketMessageHandler {
   void handleTextMessage(WebSocketChannel ws, String message) {
     try {
       var json = jsonDecode(message) as Map<String, dynamic>;
-      var data = WebSocketMessage.fromJson(json);
+      var data = ControlMessage.fromJson(json);
 
       switch (data.type) {
         case 'START':
@@ -96,7 +96,7 @@ class WebSocketMessageHandler {
   }
 
   /// Handle START message (create new stream).
-  void _handleStart(WebSocketChannel ws, WebSocketMessage data) {
+  void _handleStart(WebSocketChannel ws, ControlMessage data) {
     if (data.streamId == null || data.streamId!.isEmpty) {
       _sendError(ws, 'Missing streamId');
       return;
@@ -106,7 +106,7 @@ class WebSocketMessageHandler {
       // Register the stream with the WebSocket connection
       _onStreamStarted?.call(ws, data.streamId!);
 
-      var response = WebSocketMessage(
+      var response = ControlMessage(
         type: 'STARTED',
         streamId: data.streamId,
         message: 'Stream started successfully',
@@ -120,14 +120,14 @@ class WebSocketMessageHandler {
   }
 
   /// Handle STOP message (finalize stream).
-  void _handleStop(WebSocketChannel ws, WebSocketMessage data) {
+  void _handleStop(WebSocketChannel ws, ControlMessage data) {
     if (data.streamId == null || data.streamId!.isEmpty) {
       _sendError(ws, 'Missing streamId');
       return;
     }
 
     if (_streamManager.finalizeStream(data.streamId!)) {
-      var response = WebSocketMessage(
+      var response = ControlMessage(
         type: 'STOPPED',
         streamId: data.streamId,
         message: 'Stream finalized successfully',
@@ -141,7 +141,7 @@ class WebSocketMessageHandler {
   }
 
   /// Handle GET message (read stream data).
-  void _handleGet(WebSocketChannel ws, WebSocketMessage data) {
+  void _handleGet(WebSocketChannel ws, ControlMessage data) {
     if (data.streamId == null || data.streamId!.isEmpty) {
       _sendError(ws, 'Missing streamId');
       return;
@@ -162,7 +162,7 @@ class WebSocketMessageHandler {
   }
 
   /// Send a JSON message to client.
-  void _sendJson(WebSocketChannel ws, WebSocketMessage data) {
+  void _sendJson(WebSocketChannel ws, ControlMessage data) {
     try {
       var json = jsonEncode(data.toJson());
       ws.sink.add(json);
@@ -173,7 +173,7 @@ class WebSocketMessageHandler {
 
   /// Send an error message to client.
   void _sendError(WebSocketChannel ws, String message) {
-    var response = WebSocketMessage(
+    var response = ControlMessage(
       type: 'ERROR',
       message: message,
     );

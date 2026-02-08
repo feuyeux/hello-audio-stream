@@ -67,6 +67,16 @@ class AudioWebSocketServer implements MessageComponentInterface
         $this->clients->attach($conn);
         $clientAddr = $conn->remoteAddress;
         Logger::info("Client connected: {$clientAddr}");
+
+        // Send CONNECTED message
+        $connectionId = "conn-" . time();
+        $connectedMsg = json_encode([
+            'type' => 'CONNECTED',
+            'streamId' => $connectionId,
+            'message' => 'Connection established'
+        ]);
+        $conn->send($connectedMsg);
+        Logger::info("Sent CONNECTED message to client: {$connectionId}");
     }
 
     /**

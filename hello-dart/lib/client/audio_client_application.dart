@@ -39,36 +39,36 @@ class AudioClientApplication {
     Logger.info('Server: ${config.serverUri}');
 
     // Initialize performance monitor
-    final performance = Performance();
-    final fileSize = await FileManager.getFileSize(config.inputPath);
-    performance.setFileSize(fileSize);
+      final performance = PerformanceMonitor();
+      final fileSize = await FileManager.getFileSize(config.inputPath);
+      performance.setFileSize(fileSize);
 
-    // Connect to WebSocket server
-    final ws = WebSocketClient(config.serverUri);
-    await ws.connect();
+      // Connect to WebSocket server
+      final ws = WebSocketClient(config.serverUri);
+      await ws.connect();
 
-    try {
-      // Upload file
-      performance.startUpload();
-      final streamId = await Upload.upload(ws, config.inputPath);
-      performance.endUpload();
+      try {
+        // Upload file
+        performance.startUpload();
+        final streamId = await UploadManager.upload(ws, config.inputPath);
+        performance.endUpload();
 
-      // Sleep 2 seconds after upload
-      Logger.info('Upload successful, sleeping for 2 seconds...');
-      await Future.delayed(Duration(seconds: 2));
+        // Sleep 2 seconds after upload
+        Logger.info('Upload successful, sleeping for 2 seconds...');
+        await Future.delayed(Duration(seconds: 2));
 
-      // Download file
-      performance.startDownload();
-      await Download.download(ws, streamId, config.outputPath, fileSize);
-      performance.endDownload();
+        // Download file
+        performance.startDownload();
+        await DownloadManager.download(ws, streamId, config.outputPath, fileSize);
+        performance.endDownload();
 
-      // Sleep 2 seconds after download
-      Logger.info('Download successful, sleeping for 2 seconds...');
-      await Future.delayed(Duration(seconds: 2));
+        // Sleep 2 seconds after download
+        Logger.info('Download successful, sleeping for 2 seconds...');
+        await Future.delayed(Duration(seconds: 2));
 
-      // Verify integrity
-      final verification =
-          await Verification.verify(config.inputPath, config.outputPath);
+        // Verify integrity
+        final verification =
+            await VerificationModule.verify(config.inputPath, config.outputPath);
 
       // Report performance
       final report = performance.getReport();

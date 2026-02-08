@@ -5,7 +5,7 @@ namespace AudioStreamServer.Handler;
 /// <summary>
 /// WebSocket message types
 /// </summary>
-public class WebSocketMessage
+public class ControlMessage
 {
     [JsonPropertyName("type")]
     public string Type { get; set; } = "";

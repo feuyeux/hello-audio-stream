@@ -132,8 +132,8 @@ if(BUILD_TESTS)
 endif()
 
 include_directories(
-    ${PROJECT_SOURCE_DIR}/client/include
-    ${PROJECT_SOURCE_DIR}/server/include
+    ${PROJECT_SOURCE_DIR}/src/client/include
+    ${PROJECT_SOURCE_DIR}/src/server/include
     ${websocketpp_SOURCE_DIR}
     ${spdlog_SOURCE_DIR}/include
 )
@@ -155,16 +155,16 @@ elseif(MSVC)
 endif()
 
 if(BUILD_CLIENT)
-    add_subdirectory(client)
+    add_subdirectory(src/client)
 endif()
 
 if(BUILD_SERVER)
-    add_subdirectory(server)
+    add_subdirectory(src/server)
 endif()
 
-install(DIRECTORY client/include/ DESTINATION include/audio_stream_cache/client
+install(DIRECTORY src/client/include/ DESTINATION include/audio_stream_cache/client
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
-install(DIRECTORY server/include/ DESTINATION include/audio_stream_cache/server
+install(DIRECTORY src/server/include/ DESTINATION include/audio_stream_cache/server
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
 
 set(CPACK_PACKAGE_NAME "AudioStreamCache")

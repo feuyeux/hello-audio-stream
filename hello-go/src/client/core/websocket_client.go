@@ -33,7 +33,15 @@ func Connect(uri string) (*WebSocketClient, error) {
 		return nil, fmt.Errorf("failed to connect: %w", err)
 	}
 
-	return &WebSocketClient{conn: conn}, nil
+	client := &WebSocketClient{conn: conn}
+	
+	// Wait for and consume CONNECTED message
+	msg, err := client.ReceiveControlMessage()
+	if err == nil && msg.Type == "CONNECTED" {
+		logger.Info("Received CONNECTED message from server")
+	}
+
+	return client, nil
 }
 
 func (c *WebSocketClient) Close() error {

@@ -140,6 +140,17 @@ public class AudioWebSocketServer
 
         Logger.Instance.Info($"Client connected: {remoteEndPoint}");
 
+        // Send CONNECTED message
+        var connectionId = $"conn-{Guid.NewGuid().ToString().Substring(0, 8)}";
+        var connectedMsg = new ControlMessage
+        {
+            Type = "CONNECTED",
+            StreamId = connectionId,
+            Message = "Connection established"
+        };
+        await SendJsonAsync(webSocket, connectedMsg);
+        Logger.Instance.Info($"Sent CONNECTED message to client: {connectionId}");
+
         try
         {
             var buffer = new byte[1024 * 64]; // 64KB buffer
@@ -150,7 +161,7 @@ public class AudioWebSocketServer
                     new ArraySegment<byte>(buffer),
                     clientCts.Token);
 
-                if (result.MessageType == WebSocketMessageType.Close)
+                if (result.MessageType == ControlMessageType.Close)
                 {
                     await webSocket.CloseAsync(
                         WebSocketCloseStatus.NormalClosure,
@@ -159,12 +170,12 @@ public class AudioWebSocketServer
                     break;
                 }
 
-                if (result.MessageType == WebSocketMessageType.Text)
+                if (result.MessageType == ControlMessageType.Text)
                 {
                     var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
                     await HandleTextMessageAsync(webSocket, message);
                 }
-                else if (result.MessageType == WebSocketMessageType.Binary)
+                else if (result.MessageType == ControlMessageType.Binary)
                 {
                     var data = new byte[result.Count];
                     Array.Copy(buffer, 0, data, 0, result.Count);
@@ -215,7 +226,7 @@ public class AudioWebSocketServer
     {
         try
         {
-            var data = JsonSerializer.Deserialize<WebSocketMessage>(message);
+            var data = JsonSerializer.Deserialize<ControlMessage>(message);
             if (data == null)
             {
                 Logger.Instance.Error("Invalid JSON message");
@@ -265,7 +276,7 @@ public class AudioWebSocketServer
     /// <summary>
     /// Handle START message (create new stream).
     /// </summary>
-    private async Task HandleStartAsync(WebSocket ws, WebSocketMessage data)
+    private async Task HandleStartAsync(WebSocket ws, ControlMessage data)
     {
         if (string.IsNullOrEmpty(data.StreamId))
         {
@@ -277,7 +288,7 @@ public class AudioWebSocketServer
         {
             _activeStreams[ws] = data.StreamId!;
 
-            var response = new WebSocketMessage
+            var response = new ControlMessage
             {
                 Type = "STARTED",
                 StreamId = data.StreamId,
@@ -296,7 +307,7 @@ public class AudioWebSocketServer
     /// <summary>
     /// Handle STOP message (finalize stream).
     /// </summary>
-    private async Task HandleStopAsync(WebSocket ws, WebSocketMessage data)
+    private async Task HandleStopAsync(WebSocket ws, ControlMessage data)
     {
         if (string.IsNullOrEmpty(data.StreamId))
         {
@@ -306,7 +317,7 @@ public class AudioWebSocketServer
 
         if (_streamManager.FinalizeStream(data.StreamId!))
         {
-            var response = new WebSocketMessage
+            var response = new ControlMessage
             {
                 Type = "STOPPED",
                 StreamId = data.StreamId,
@@ -325,7 +336,7 @@ public class AudioWebSocketServer
     /// <summary>
     /// Handle GET message (read stream data).
     /// </summary>
-    private async Task HandleGetAsync(WebSocket ws, WebSocketMessage data)
+    private async Task HandleGetAsync(WebSocket ws, ControlMessage data)
     {
         if (string.IsNullOrEmpty(data.StreamId))
         {
@@ -352,7 +363,7 @@ public class AudioWebSocketServer
     /// <summary>
     /// Send a JSON message to client.
     /// </summary>
-    private async Task SendJsonAsync(WebSocket ws, WebSocketMessage data)
+    private async Task SendJsonAsync(WebSocket ws, ControlMessage data)
     {
         try
         {
@@ -370,7 +381,7 @@ public class AudioWebSocketServer
     /// </summary>
     private async Task SendErrorAsync(WebSocket ws, string message)
     {
-        var response = new WebSocketMessage
+        var response = new ControlMessage
         {
             Type = "ERROR",
             Message = message
@@ -388,7 +399,7 @@ public class AudioWebSocketServer
         {
             await ws.SendAsync(
                 new ArraySegment<byte>(data),
-                WebSocketMessageType.Binary,
+                ControlMessageType.Binary,
                 true,
                 cts.Token);
         }
@@ -404,7 +415,7 @@ public class AudioWebSocketServer
         {
             await ws.SendAsync(
                 new ArraySegment<byte>(bytes),
-                WebSocketMessageType.Text,
+                ControlMessageType.Text,
                 true,
                 cts.Token);
         }

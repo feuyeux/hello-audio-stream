@@ -3,7 +3,7 @@ import '../../src/types.dart';
 import '../../src/logger.dart';
 
 /// File verification module
-class Verification {
+class VerificationModule {
   static Future<VerificationResult> verify(
       String originalPath, String downloadedPath) async {
     Logger.info('========================================');

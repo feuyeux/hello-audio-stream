@@ -135,4 +135,20 @@ export class WebSocketMessage implements IWebSocketMessage {
       message,
     );
   }
+
+  /**
+   * Create a CONNECTED response message.
+   */
+  static connected(
+    connectionId: string,
+    message: string = "Connection established",
+  ): WebSocketMessage {
+    return new WebSocketMessage(
+      "CONNECTED",
+      connectionId,
+      undefined,
+      undefined,
+      message,
+    );
+  }
 }

@@ -15,19 +15,9 @@ class UploadManager {
         Logger.info("Stream ID: \(streamId)")
         Logger.info("File size: \(fileSize) bytes")
 
-        // Send START message
-        try await ws.sendText(
-            WebSocketMessage(
-                type: MessageType.START.rawValue, streamId: streamId, offset: nil, length: nil, message: nil))
-
-        // Wait for START_ACK (filter out CONNECTED and other message types)
-        guard let startAck = try await ws.receiveText(expectedType: MessageType.STARTED.rawValue)
-        else {
-            throw NSError(
-                domain: "Upload", code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to receive START_ACK"])
-        }
-        Logger.debug("Received START_ACK")
+        // Send START message (no response expected, matching Java implementation)
+        try await ws.sendText(WebSocketMessage.start(streamId: streamId))
+        Logger.info("Sent START message for stream: \(streamId)")
 
         // Upload file in chunks
         var offset: Int64 = 0
@@ -39,31 +29,20 @@ class UploadManager {
                 path: filePath, offset: offset, size: chunkSize)
 
             try await ws.sendBinary(chunk)
-            offset += Int64(chunk.count)
+            offset += Int64(chunkSize)
 
-            // Report progress
             let progress = Int((Double(offset) / Double(fileSize)) * 100)
-            if progress >= lastProgress + 25 && progress > lastProgress {
+            if progress != lastProgress && progress % 10 == 0 {
                 Logger.info("Upload progress: \(progress)% (\(offset) / \(fileSize) bytes)")
-                lastProgress = (progress / 25) * 25
+                lastProgress = progress
             }
         }
 
         Logger.info("Upload progress: 100% (\(fileSize) / \(fileSize) bytes)")
 
-        // Send STOP message
-        try await ws.sendText(
-            WebSocketMessage(
-                type: MessageType.STOP.rawValue, streamId: streamId, offset: nil, length: nil, message: nil))
-
-        // Wait for STOP_ACK (filter out other message types)
-        guard let stopAck = try await ws.receiveText(expectedType: MessageType.STOPPED.rawValue)
-        else {
-            throw NSError(
-                domain: "Upload", code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to receive STOP_ACK"])
-        }
-        Logger.debug("Received STOP_ACK")
+        // Send STOP message (no response expected, matching Java implementation)
+        try await ws.sendText(WebSocketMessage.stop(streamId: streamId))
+        Logger.info("Sent STOP message")
 
         Logger.info("Upload completed")
 

@@ -1,48 +1,21 @@
 /**
- * WebSocket message types enum.
- * All type values are uppercase as per protocol specification.
- */
-export const MessageType = {
-  START: "START",
-  STARTED: "STARTED",
-  STOP: "STOP",
-  STOPPED: "STOPPED",
-  GET: "GET",
-  ERROR: "ERROR",
-  CONNECTED: "CONNECTED",
-};
-
-/**
- * Parse string to MessageType value.
- * Case-insensitive comparison for backward compatibility.
- * @param {string|null} value - String value to parse
- * @returns {string|null} - Corresponding MessageType value or null
- */
-export const getMessageType = (value) => {
-  if (!value) return null;
-  const upperValue = value.toUpperCase();
-  return Object.values(MessageType).find((type) => type === upperValue) || null;
-};
-
-/**
- * WebSocket message class for JSON serialization/deserialization.
+ * WebSocket message POJO for JSON serialization/deserialization.
  * Used for all control messages between client and server.
  */
-export class WebSocketMessage {
+
+const MessageType = require("./MessageType");
+
+class WebSocketMessage {
   /**
-   * @param {string} type - Message type (START, STOP, GET, STARTED, STOPPED, ERROR)
-   * @param {string|null} streamId - Stream identifier
-   * @param {number|null} offset - Read offset for GET messages
-   * @param {number|null} length - Read length for GET messages
-   * @param {string|null} message - Response message
+   * Create a WebSocketMessage.
+   *
+   * @param {string} type - Message type
+   * @param {string} streamId - Stream ID (optional)
+   * @param {number} offset - Offset for GET requests (optional)
+   * @param {number} length - Length for GET requests (optional)
+   * @param {string} message - Additional message text (optional)
    */
-  constructor(
-    type,
-    streamId = null,
-    offset = null,
-    length = null,
-    message = null,
-  ) {
+  constructor(type, streamId = null, offset = null, length = null, message = null) {
     this.type = type;
     this.streamId = streamId;
     this.offset = offset;
@@ -51,11 +24,83 @@ export class WebSocketMessage {
   }
 
   /**
-   * Convert to JSON string, excluding null values.
-   * @returns {string}
+   * Factory method: Create a STARTED response message.
+   *
+   * @param {string} streamId - Stream ID
+   * @param {string} message - Message text
+   * @returns {WebSocketMessage}
    */
-  toJSON() {
-    const obj = { type: this.type };
+  static started(streamId, message = "Stream started successfully") {
+    return new WebSocketMessage(MessageType.STARTED, streamId, null, null, message);
+  }
+
+  /**
+   * Factory method: Create a STOPPED response message.
+   *
+   * @param {string} streamId - Stream ID
+   * @param {string} message - Message text
+   * @returns {WebSocketMessage}
+   */
+  static stopped(streamId, message = "Stream finalized successfully") {
+    return new WebSocketMessage(MessageType.STOPPED, streamId, null, null, message);
+  }
+
+  /**
+   * Factory method: Create a CONNECTED response message.
+   *
+   * @param {string} streamId - Connection ID
+   * @param {string} message - Message text
+   * @returns {WebSocketMessage}
+   */
+  static connected(streamId, message = "Connection established") {
+    return new WebSocketMessage(MessageType.CONNECTED, streamId, null, null, message);
+  }
+
+  /**
+   * Factory method: Create an ERROR response message.
+   *
+   * @param {string} message - Error message
+   * @returns {WebSocketMessage}
+   */
+  static error(message) {
+    return new WebSocketMessage(MessageType.ERROR, null, null, null, message);
+  }
+
+  /**
+   * Get the message type as MessageType enum value.
+   *
+   * @returns {string|null} MessageType value, or null if type is not valid
+   */
+  getMessageType() {
+    return MessageType.fromString(this.type);
+  }
+
+  /**
+   * Parse JSON string to WebSocketMessage.
+   *
+   * @param {string} json - JSON string
+   * @returns {WebSocketMessage}
+   */
+  static fromJson(json) {
+    const data = JSON.parse(json);
+    return new WebSocketMessage(
+      data.type,
+      data.streamId || null,
+      data.offset || null,
+      data.length || null,
+      data.message || null
+    );
+  }
+
+  /**
+   * Convert WebSocketMessage to JSON string.
+   * Excludes null values.
+   *
+   * @returns {string} JSON string
+   */
+  toJson() {
+    const obj = {};
+    if (this.type !== null) obj.type = this.type;
     if (this.streamId !== null) obj.streamId = this.streamId;
     if (this.offset !== null) obj.offset = this.offset;
     if (this.length !== null) obj.length = this.length;
@@ -64,56 +109,23 @@ export class WebSocketMessage {
   }
 
   /**
-   * Parse from JSON string.
-   * @param {string} jsonStr
-   * @returns {WebSocketMessage}
+   * Convert to plain object (excluding null values).
+   *
+   * @returns {object}
    */
-  static fromJSON(jsonStr) {
-    const data = JSON.parse(jsonStr);
-    return WebSocketMessage.fromObject(data);
+  toObject() {
+    const obj = {};
+    if (this.type !== null) obj.type = this.type;
+    if (this.streamId !== null) obj.streamId = this.streamId;
+    if (this.offset !== null) obj.offset = this.offset;
+    if (this.length !== null) obj.length = this.length;
+    if (this.message !== null) obj.message = this.message;
+    return obj;
   }
 
-  /**
-   * Parse from object.
-   * @param {object} data
-   * @returns {WebSocketMessage}
-   */
-  static fromObject(data) {
-    return new WebSocketMessage(
-      data.type || "",
-      data.streamId || null,
-      data.offset !== undefined ? data.offset : null,
-      data.length !== undefined ? data.length : null,
-      data.message || null,
-    );
-  }
-
-  /**
-   * Create a STARTED response message.
-   * @param {string} streamId
-   * @param {string} message
-   * @returns {WebSocketMessage}
-   */
-  static started(streamId, message = "Stream started successfully") {
-    return new WebSocketMessage("STARTED", streamId, null, null, message);
-  }
-
-  /**
-   * Create a STOPPED response message.
-   * @param {string} streamId
-   * @param {string} message
-   * @returns {WebSocketMessage}
-   */
-  static stopped(streamId, message = "Stream finalized successfully") {
-    return new WebSocketMessage("STOPPED", streamId, null, null, message);
-  }
-
-  /**
-   * Create an ERROR response message.
-   * @param {string} message
-   * @returns {WebSocketMessage}
-   */
-  static error(message) {
-    return new WebSocketMessage("ERROR", null, null, null, message);
+  toString() {
+    return `WebSocketMessage{type='${this.type}', streamId='${this.streamId}', offset=${this.offset}, length=${this.length}, message='${this.message}'}`;
   }
 }
+
+module.exports = WebSocketMessage;

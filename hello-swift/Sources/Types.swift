@@ -11,6 +11,11 @@ public enum MessageType: String, Codable, CaseIterable {
     case ERROR = "ERROR"
     case CONNECTED = "CONNECTED"
 
+    /// Get the uppercase string value for this enum
+    public var value: String {
+        return rawValue
+    }
+
     /// Parse string to MessageType enum
     /// Case-insensitive comparison for backward compatibility
     public static func fromString(_ value: String?) -> MessageType? {
@@ -50,6 +55,90 @@ public struct WebSocketMessage: Codable {
         self.offset = offset
         self.length = length
         self.message = message
+    }
+
+    /// Get the message type as enum
+    public var messageTypeEnum: MessageType? {
+        return MessageType.fromString(type)
+    }
+
+    // MARK: - Factory Methods
+
+    /// Create a START message
+    public static func start(streamId: String) -> WebSocketMessage {
+        return WebSocketMessage(
+            type: MessageType.START.rawValue,
+            streamId: streamId,
+            offset: nil,
+            length: nil,
+            message: nil
+        )
+    }
+
+    /// Create a STARTED message
+    public static func started(streamId: String, message: String? = nil) -> WebSocketMessage {
+        return WebSocketMessage(
+            type: MessageType.STARTED.rawValue,
+            streamId: streamId,
+            offset: nil,
+            length: nil,
+            message: message
+        )
+    }
+
+    /// Create a STOP message
+    public static func stop(streamId: String) -> WebSocketMessage {
+        return WebSocketMessage(
+            type: MessageType.STOP.rawValue,
+            streamId: streamId,
+            offset: nil,
+            length: nil,
+            message: nil
+        )
+    }
+
+    /// Create a STOPPED message
+    public static func stopped(streamId: String, message: String? = nil) -> WebSocketMessage {
+        return WebSocketMessage(
+            type: MessageType.STOPPED.rawValue,
+            streamId: streamId,
+            offset: nil,
+            length: nil,
+            message: message
+        )
+    }
+
+    /// Create a GET message
+    public static func get(streamId: String, offset: Int64, length: Int) -> WebSocketMessage {
+        return WebSocketMessage(
+            type: MessageType.GET.rawValue,
+            streamId: streamId,
+            offset: offset,
+            length: length,
+            message: nil
+        )
+    }
+
+    /// Create a CONNECTED message
+    public static func connected(streamId: String, message: String? = nil) -> WebSocketMessage {
+        return WebSocketMessage(
+            type: MessageType.CONNECTED.rawValue,
+            streamId: streamId,
+            offset: nil,
+            length: nil,
+            message: message
+        )
+    }
+
+    /// Create an ERROR message
+    public static func error(message: String) -> WebSocketMessage {
+        return WebSocketMessage(
+            type: MessageType.ERROR.rawValue,
+            streamId: nil,
+            offset: nil,
+            length: nil,
+            message: message
+        )
     }
 }
 

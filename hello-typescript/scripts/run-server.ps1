@@ -20,4 +20,4 @@ Write-Host "Endpoint: $PathEndpoint" -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
-npx ts-node src/server/main.ts --port $Port --path $PathEndpoint
+npx ts-node src/server/AudioServerApplication.ts --port $Port --path $PathEndpoint

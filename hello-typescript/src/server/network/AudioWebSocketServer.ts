@@ -8,6 +8,7 @@ import * as WebSocket from "ws";
 import { StreamManager } from "../memory/StreamManager";
 import { MemoryPoolManager } from "../memory/MemoryPoolManager";
 import { WebSocketMessageHandler } from "../handler/WebSocketMessageHandler";
+import { WebSocketMessage } from "../handler/WebSocketMessage";
 
 export class AudioWebSocketServer {
   private host: string;
@@ -67,6 +68,14 @@ export class AudioWebSocketServer {
   private handleConnection(ws: WebSocket): void {
     const clientAddr = `${(ws as any)._socket?.remoteAddress}:${(ws as any)._socket?.remotePort}`;
     console.log(`Client connected: ${clientAddr}`);
+
+    const connectionId = `conn-${this.connectionHandlers.size + 1}`;
+    const connectedMessage = WebSocketMessage.connected(
+      connectionId,
+      "Connection established",
+    );
+    ws.send(connectedMessage.toJSON());
+    console.log(`Sent CONNECTED message to client: ${clientAddr}`);
 
     // Create a handler for this connection
     const handler = new WebSocketMessageHandler(this.streamManager);

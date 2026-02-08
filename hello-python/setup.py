@@ -12,8 +12,8 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "audio-stream-client=audio_client.audio_client_application:main",
-            "audio-stream-server=audio_server.audio_server_application:main",
+            "audio-stream-client=client.audio_client_application:main",
+            "audio-stream-server=server.audio_server_application:main",
         ],
     },
     python_requires=">=3.8",

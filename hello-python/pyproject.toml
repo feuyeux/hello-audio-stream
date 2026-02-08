@@ -24,8 +24,8 @@ classifiers = [
 dependencies = ["websockets>=14.0", "loguru>=0.7.3"]
 
 [project.scripts]
-audio-stream-client = "audio_client.audio_client_application:main"
-audio-stream-server = "audio_server.audio_server_application:main"
+audio-stream-client = "client.audio_client_application:main"
+audio-stream-server = "server.audio_server_application:main"
 
 [project.optional-dependencies]
 dev = [

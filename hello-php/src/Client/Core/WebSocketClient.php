@@ -23,6 +23,17 @@ class WebSocketClient
             'timeout' => 30,
         ]);
         Logger::info('Connected to server');
+        
+        // Wait for and consume CONNECTED message
+        try {
+            $connectedMsg = $this->receiveText();
+            $data = json_decode($connectedMsg, true);
+            if (isset($data['type']) && $data['type'] === 'CONNECTED') {
+                Logger::info('Received CONNECTED message from server');
+            }
+        } catch (\Exception $e) {
+            // Ignore if no CONNECTED message
+        }
     }
 
     public function sendText(array $message): void

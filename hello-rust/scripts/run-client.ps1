@@ -11,7 +11,7 @@ chcp 65001 | Out-Null
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-$ClientBin = "target\release\audio_stream_client.exe"
+$ClientBin = "target\release\client.exe"
 
 if (-not (Test-Path $ClientBin)) {
     Write-Host "Client not found. Building..." -ForegroundColor Yellow

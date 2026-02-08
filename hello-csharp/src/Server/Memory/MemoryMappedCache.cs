@@ -4,13 +4,13 @@
 
 using System;
 using System.IO;
-using System.Linq;
+using System.IO.MemoryMappedFiles;
 using System.Threading;
 
 namespace AudioStreamServer.Memory;
 
 /// <summary>
-/// Memory-mapped cache implementation.
+/// Memory-mapped cache implementation using System.IO.MemoryMappedFiles.
 /// </summary>
 public class MemoryMappedCache
 {
@@ -21,7 +21,8 @@ public class MemoryMappedCache
     private const int BatchOperationLimit = 1000; // Max batch operations
 
     public string Path { get; }
-    private FileStream? _fileStream;
+    private MemoryMappedFile? _mmf;
+    private MemoryMappedViewAccessor? _accessor;
     private long _size;
     private bool _isOpen;
     private readonly ReaderWriterLockSlim _rwLock = new ReaderWriterLockSlim();
@@ -32,7 +33,8 @@ public class MemoryMappedCache
     public MemoryMappedCache(string path)
     {
         Path = path;
-        _fileStream = null;
+        _mmf = null;
+        _accessor = null;
         _size = 0;
         _isOpen = false;
     }
@@ -55,34 +57,55 @@ public class MemoryMappedCache
 
     private bool CreateInternal(string filePath, long initialSize)
     {
-        // Remove existing file
-        if (File.Exists(filePath))
+        try
         {
-            File.Delete(filePath);
-        }
+            // Remove existing file
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
 
-        // Create and open file
-        _fileStream = new FileStream(
-            filePath,
-            FileMode.Create,
-            FileAccess.ReadWrite,
-            FileShare.ReadWrite
-        );
-
-        if (initialSize > 0)
-        {
-            // Write zeros to allocate space
-            _fileStream.SetLength(initialSize);
+            // Create file and set initial size
+            using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite))
+            {
+                if (initialSize > 0)
+                {
+                    fs.SetLength(initialSize);
+                }
+            }
+            
             _size = initialSize;
-        }
-        else
-        {
-            _size = 0;
-        }
 
-        _isOpen = true;
-        Logger.Instance.Debug($"Created mmap file: {filePath} with size: {initialSize}");
-        return true;
+            if (initialSize > 0)
+            {
+                // Create memory mapped file
+                _mmf = MemoryMappedFile.CreateFromFile(
+                    filePath,
+                    FileMode.Open,
+                    null, // mapName
+                    initialSize,
+                    MemoryMappedFileAccess.ReadWrite
+                );
+
+                // Create view accessor for the whole file (simplified for now, might need segmentation for very large files > 2GB on x86, but ok for x64)
+                // Note: CreateViewAccessor(0, 0) maps the whole file
+                _accessor = _mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.ReadWrite);
+            }
+            else
+            {
+                _mmf = null;
+                _accessor = null;
+            }
+
+            _isOpen = true;
+            Logger.Instance.Debug($"Created mmap file: {filePath} with size: {initialSize}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error($"Error creating mmap file {filePath}: {ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>
@@ -103,23 +126,41 @@ public class MemoryMappedCache
 
     private bool OpenInternal(string filePath)
     {
-        if (!File.Exists(filePath))
+        try
         {
-            Logger.Instance.Error($"File does not exist: {filePath}");
+            if (!File.Exists(filePath))
+            {
+                Logger.Instance.Error($"File does not exist: {filePath}");
+                return false;
+            }
+
+            var fileInfo = new FileInfo(filePath);
+            _size = fileInfo.Length;
+
+            if (_size > 0)
+            {
+                _mmf = MemoryMappedFile.CreateFromFile(
+                    filePath,
+                    FileMode.Open,
+                    null,
+                    _size, // 0 to map full file capacity? No, needs actual capacity if larger?
+                           // CreateFromFile with capacity 0 uses file stream length.
+                           // But here we specify capacity explicitly to be safe or 0 for current size.
+                    MemoryMappedFileAccess.ReadWrite
+                );
+
+                _accessor = _mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.ReadWrite);
+            }
+
+            _isOpen = true;
+            Logger.Instance.Debug($"Opened mmap file: {filePath} with size: {_size}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error($"Error opening mmap file {filePath}: {ex.Message}");
             return false;
         }
-
-        _fileStream = new FileStream(
-            filePath,
-            FileMode.Open,
-            FileAccess.ReadWrite,
-            FileShare.ReadWrite
-        );
-
-        _size = _fileStream.Length;
-        _isOpen = true;
-        Logger.Instance.Debug($"Opened mmap file: {filePath} with size: {_size}");
-        return true;
     }
 
     /// <summary>
@@ -140,10 +181,12 @@ public class MemoryMappedCache
 
     private void CloseInternal()
     {
-        if (_isOpen && _fileStream != null)
+        if (_isOpen)
         {
-            _fileStream.Close();
-            _fileStream = null;
+            _accessor?.Dispose();
+            _accessor = null;
+            _mmf?.Dispose();
+            _mmf = null;
             _isOpen = false;
         }
     }
@@ -156,7 +199,7 @@ public class MemoryMappedCache
         _rwLock.EnterWriteLock();
         try
         {
-            if (!_isOpen || _fileStream == null)
+            if (!_isOpen)
             {
                 long initialSize = offset + data.Length;
                 if (!CreateInternal(Path, initialSize))
@@ -175,12 +218,20 @@ public class MemoryMappedCache
                 }
             }
 
-            // Seek to offset
-            _fileStream!.Seek(offset, SeekOrigin.Begin);
+            if (_accessor == null)
+            {
+                 Logger.Instance.Error("Accessor is null after resize/create");
+                 return 0;
+            }
 
-            // Write data
-            _fileStream.Write(data, 0, data.Length);
+            // Write data using accessor
+            _accessor.WriteArray(offset, data, 0, data.Length);
             return data.Length;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error($"Error writing to file {Path}: {ex.Message}");
+            return 0;
         }
         finally
         {
@@ -196,24 +247,24 @@ public class MemoryMappedCache
         _rwLock.EnterReadLock();
         try
         {
-            if (!_isOpen || _fileStream == null)
+            // Auto open logic handled with lock upgrade pattern in Go, here simplifed:
+            if (!_isOpen)
             {
                 _rwLock.ExitReadLock();
                 _rwLock.EnterWriteLock();
-                try
+                try 
                 {
-                    if (!_isOpen || _fileStream == null)
+                    if (!_isOpen)
                     {
                         if (!OpenInternal(Path))
                         {
-                            Logger.Instance.Error($"Failed to open file for reading: {Path}");
                             return Array.Empty<byte>();
                         }
                     }
                 }
                 finally
                 {
-                    _rwLock.ExitWriteLock();
+                     _rwLock.ExitWriteLock();
                 }
                 _rwLock.EnterReadLock();
             }
@@ -222,17 +273,25 @@ public class MemoryMappedCache
             {
                 return Array.Empty<byte>();
             }
+            
+            if (_accessor == null)
+            {
+                // Can happen if size is 0
+                return Array.Empty<byte>();
+            }
 
-            // Seek to offset
-            _fileStream!.Seek(offset, SeekOrigin.Begin);
-
-            // Read data
             int actualLength = Math.Min(length, (int)(_size - offset));
             byte[] buffer = new byte[actualLength];
-            int bytesRead = _fileStream.Read(buffer, 0, actualLength);
+            
+            _accessor.ReadArray(offset, buffer, 0, actualLength);
 
-            Logger.Instance.Debug($"Read {bytesRead} bytes from {Path} at offset {offset}");
-            return buffer.Take(bytesRead).ToArray();
+            Logger.Instance.Debug($"Read {actualLength} bytes from {Path} at offset {offset}");
+            return buffer;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error($"Error reading from file {Path}: {ex.Message}");
+            return Array.Empty<byte>();
         }
         finally
         {
@@ -304,16 +363,44 @@ public class MemoryMappedCache
             return true;
         }
 
-        if (newSize < _size)
+        try
         {
-            // Truncate
-            Logger.Instance.Warning($"Truncating file {Path} to {newSize}");
-        }
+            // Must dispose MMF before resizing file
+            _accessor?.Dispose();
+            _accessor = null;
+            _mmf?.Dispose();
+            _mmf = null;
 
-        _fileStream!.SetLength(newSize);
-        _size = newSize;
-        Logger.Instance.Debug($"Resized file {Path} to {newSize} bytes");
-        return true;
+            // Resize file stream equivalent
+            // Create a temporary stream to resize
+            using (var fs = new FileStream(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+            {
+                fs.SetLength(newSize);
+            }
+            
+            _size = newSize;
+
+            // Re-create MMF
+            if (newSize > 0)
+            {
+                _mmf = MemoryMappedFile.CreateFromFile(
+                    Path,
+                    FileMode.Open,
+                    null,
+                    newSize,
+                    MemoryMappedFileAccess.ReadWrite
+                );
+                _accessor = _mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.ReadWrite);
+            }
+
+            Logger.Instance.Debug($"Resized file {Path} to {newSize} bytes");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error($"Error resizing file {Path}: {ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>
@@ -324,15 +411,20 @@ public class MemoryMappedCache
         _rwLock.EnterWriteLock();
         try
         {
-            if (!_isOpen || _fileStream == null)
+            if (!_isOpen)
             {
                 Logger.Instance.Warning($"File not open for flush: {Path}");
                 return false;
             }
 
-            _fileStream.Flush();
+            _accessor?.Flush();
             Logger.Instance.Debug($"Flushed file: {Path}");
             return true;
+        }
+        catch (Exception ex)
+        {
+             Logger.Instance.Error($"Error flushing file {Path}: {ex.Message}");
+             return false;
         }
         finally
         {
@@ -360,8 +452,7 @@ public class MemoryMappedCache
                 return false;
             }
 
-            // Flush to disk
-            _fileStream!.Flush();
+            _accessor?.Flush();
 
             Logger.Instance.Debug($"Finalized file: {Path} with size: {finalSize}");
             return true;

@@ -4,7 +4,15 @@
 chcp 65001 | Out-Null
 
 # Set JAVA_HOME for Windows
-$env:JAVA_HOME = "d:/zoo/jdk-25"
+if ($IsWindows -or ($env:OS -like '*Windows*')) {
+    $CustomJdkPath = "D:\zoo\jdk-25.0.2"
+    if (Test-Path $CustomJdkPath) {
+        $env:JAVA_HOME = $CustomJdkPath
+        $env:Path = "$CustomJdkPath\bin;$env:Path"
+    }
+}
+
+
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot

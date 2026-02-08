@@ -32,15 +32,19 @@ class WebSocketClient(private val uri: String) {
                 session = this
                 Logger.info("Connected to server")
                 
-                // Read and ignore the initial "connected" message from server
+                // Wait for and consume CONNECTED message
                 try {
                     val initialFrame = incoming.receive()
                     if (initialFrame is Frame.Text) {
                         val text = initialFrame.readText()
-                        Logger.debug("Received initial message: $text")
+                        val jsonParser = Json { ignoreUnknownKeys = true }
+                        val msg = jsonParser.decodeFromString<WebSocketMessage>(text)
+                        if (msg.type == "CONNECTED") {
+                            Logger.info("Received CONNECTED message from server")
+                        }
                     }
                 } catch (e: Exception) {
-                    Logger.debug("No initial message from server")
+                    Logger.debug("No CONNECTED message from server")
                 }
                 
                 result = block()

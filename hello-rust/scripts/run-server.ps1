@@ -10,7 +10,7 @@ chcp 65001 | Out-Null
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-$ServerBin = "target\release\audio_stream_server.exe"
+$ServerBin = "target\release\server.exe"
 
 if (-not (Test-Path $ServerBin)) {
     Write-Host "Server not found. Building..." -ForegroundColor Yellow

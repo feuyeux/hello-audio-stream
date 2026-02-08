@@ -58,9 +58,9 @@ class AudioWebSocketServer(
                     clients[this] = clientId
                     
                     Logger.info("Client connected: $clientId")
-                    
+
                     // Send connection established message
-                    send(Frame.Text("{\"type\":\"connected\",\"message\":\"Connection established\"}"))
+                    send(Frame.Text("{\"type\":\"CONNECTED\",\"streamId\":\"conn-$clientId\",\"message\":\"Connection established\"}"))
 
                     try {
                         for (frame in incoming) {

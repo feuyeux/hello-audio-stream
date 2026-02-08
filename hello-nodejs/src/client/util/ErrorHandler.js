@@ -50,6 +50,25 @@ export class ErrorHandler {
       this.onErrorCallback(errorInfo);
     }
   }
+  /**
+   * Generic error handler for uncaught exceptions.
+   *
+   * @param {Error} error - the error object
+   * @param {string} context - context where the error occurred
+   */
+  handle(error, context = "") {
+    const message = error.message || "Unknown error";
+    const stack = error.stack || "";
+
+    console.error(`[ERROR] ${context}: ${message}`);
+    if (stack) {
+      console.error(stack);
+    }
+
+    // Report as a general error
+    this.reportError("VALIDATION_ERROR", message, context, false);
+  }
+
 
   // Error handling strategies
 

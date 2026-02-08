@@ -267,6 +267,22 @@ class MemoryMappedCache {
     }
   }
 
+  /// Flush all data to disk.
+  Future<bool> flush() async {
+    if (!_isOpen || _file == null) {
+      Logger.warn('File not open for flush: $path');
+      return false;
+    }
+    try {
+      await _file!.flush();
+      Logger.debug('Flushed file: $path');
+      return true;
+    } catch (e) {
+      Logger.error('Error flushing file $path: $e');
+      return false;
+    }
+  }
+
   /// Finalize the file to its final size.
   Future<bool> finalize(int finalSize) async {
     if (!_isOpen) {
@@ -279,7 +295,7 @@ class MemoryMappedCache {
       return false;
     }
 
-    // Sync to disk (file handles auto-sync on close)
+    await flush();
     Logger.debug('Finalized file: $path with size: $finalSize');
     return true;
   }

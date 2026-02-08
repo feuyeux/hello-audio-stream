@@ -4,6 +4,8 @@ param(
     [string]$BuildType = "Release"
 )
 
+$ErrorActionPreference = 'Stop'
+
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
@@ -14,13 +16,13 @@ Write-Host "Building Rust Client ($BuildType)..." -ForegroundColor Cyan
 
 try {
     if ($BuildType -eq "Release") {
-        cargo build --release --bin audio_stream_client
+        cargo build --release --bin client
         Write-Host "Client build complete!" -ForegroundColor Green
-        Write-Host "Binary: target\release\audio_stream_client.exe" -ForegroundColor Green
+        Write-Host "Binary: target\release\client.exe" -ForegroundColor Green
     } else {
-        cargo build --bin audio_stream_client
+        cargo build --bin client
         Write-Host "Client build complete!" -ForegroundColor Green
-        Write-Host "Binary: target\debug\audio_stream_client.exe" -ForegroundColor Green
+        Write-Host "Binary: target\debug\client.exe" -ForegroundColor Green
     }
 } catch {
     Write-Host "Build failed: $_" -ForegroundColor Red

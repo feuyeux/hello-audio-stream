@@ -8,6 +8,6 @@ Set-Location $ProjectRoot
 
 Write-Host "Building C# Server..." -ForegroundColor Cyan
 
-dotnet build -c Release
+dotnet build AudioStreamCache.csproj -c Release
 
 Write-Host "Server build complete!" -ForegroundColor Green

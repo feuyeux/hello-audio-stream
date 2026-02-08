@@ -69,6 +69,16 @@ export class AudioWebSocketServer {
     const clientAddr = req.socket.remoteAddress || "unknown";
     console.log(`Client connected: ${clientAddr}`);
 
+    // Send CONNECTED message
+    const connectionId = `conn-${Date.now()}`;
+    const connectedMsg = JSON.stringify({
+      type: "CONNECTED",
+      streamId: connectionId,
+      message: "Connection established"
+    });
+    ws.send(connectedMsg);
+    console.log(`Sent CONNECTED message to client: ${connectionId}`);
+
     // Register client
     this.clients.add(ws);
 

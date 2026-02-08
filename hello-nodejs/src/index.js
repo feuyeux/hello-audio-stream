@@ -5,7 +5,7 @@
  * Main entry point - delegates to AudioClientApplication
  */
 
-import { AudioClientApplication } from "./client/AudioClientApplication.js";
+import { AudioClientApplication } from "./client/audio-client-application.js";
 import { parseArgs } from "./cli.js";
 
 async function main() {

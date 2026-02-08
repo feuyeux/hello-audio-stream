@@ -14,6 +14,16 @@ class Config {
 }
 
 /// Control message for WebSocket communication
+enum MessageType {
+  START,
+  STARTED,
+  STOP,
+  STOPPED,
+  GET,
+  ERROR,
+  CONNECTED,
+}
+
 class ControlMessage {
   final String type;
   final String? streamId;
@@ -28,6 +38,37 @@ class ControlMessage {
     this.length,
     this.message,
   });
+
+  factory ControlMessage.connected(String connectionId, [String message = 'Connection established']) {
+    return ControlMessage(
+      type: MessageType.CONNECTED.name,
+      streamId: connectionId,
+      message: message,
+    );
+  }
+
+  factory ControlMessage.started(String streamId, [String message = 'Stream started successfully']) {
+    return ControlMessage(
+      type: MessageType.STARTED.name,
+      streamId: streamId,
+      message: message,
+    );
+  }
+
+  factory ControlMessage.stopped(String streamId, [String message = 'Stream finalized successfully']) {
+    return ControlMessage(
+      type: MessageType.STOPPED.name,
+      streamId: streamId,
+      message: message,
+    );
+  }
+
+  factory ControlMessage.error(String message) {
+    return ControlMessage(
+      type: MessageType.ERROR.name,
+      message: message,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{'type': type};

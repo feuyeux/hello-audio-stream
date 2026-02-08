@@ -27,6 +27,20 @@ public class WebSocketClient : IDisposable
         _ws = new ClientWebSocket();
         await _ws.ConnectAsync(new Uri(_uri), _cts.Token);
         Logger.Debug($"Connected to WebSocket server: {_uri}");
+        
+        // Wait for and consume CONNECTED message
+        try
+        {
+            var connectedMsg = await ReceiveTextAsync();
+            if (connectedMsg != null && connectedMsg.Type == "CONNECTED")
+            {
+                Logger.Info("Received CONNECTED message from server");
+            }
+        }
+        catch
+        {
+            // Ignore if no CONNECTED message
+        }
     }
 
     public async Task SendTextAsync(string message)

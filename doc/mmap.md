@@ -157,39 +157,36 @@ graph LR
     subgraph "原生 mmap 支持"
         CPP[C++<br/>sys/mman.h<br/>Windows API]
         RUST[Rust<br/>memmap2 crate]
-        GO[Go<br/>syscall.Mmap]
         PYTHON[Python<br/>mmap module]
+        NODEJS[Node.js<br/>mmap-io lib]
+        TS[TypeScript<br/>mmap-io lib]
+        GO[Go<br/>syscall]
+        SWIFT[Swift<br/>Darwin mmap]
     end
     
-    subgraph "JVM MappedByteBuffer"
+    subgraph "JVM/Framework 内存映射"
         JAVA[Java<br/>MappedByteBuffer]
         KOTLIN[Kotlin<br/>MappedByteBuffer]
-    end
-    
-    subgraph ".NET MemoryMappedFile"
         CSHARP[C#<br/>MemoryMappedFile]
     end
     
-    subgraph "文件 I/O 模拟"
-        NODEJS[Node.js<br/>fs sync API]
-        TS[TypeScript<br/>fs sync API]
-        DART[Dart<br/>RandomAccessFile]
-        SWIFT[Swift<br/>FileHandle]
-        PHP[PHP<br/>fopen/fread/fwrite]
+    subgraph "FFI 内存映射"
+        DART[Dart<br/>dart:ffi]
+        PHP[PHP<br/>FFI]
     end
     
     CPP --> |零拷贝| KERNEL[操作系统内核]
     RUST --> |零拷贝| KERNEL
-    GO --> |零拷贝| KERNEL
     PYTHON --> |零拷贝| KERNEL
+    NODEJS --> |零拷贝| KERNEL
+    TS --> |零拷贝| KERNEL
+    GO --> |零拷贝| KERNEL
+    SWIFT --> |零拷贝| KERNEL
     JAVA --> |零拷贝| KERNEL
     KOTLIN --> |零拷贝| KERNEL
     CSHARP --> |零拷贝| KERNEL
-    NODEJS --> |用户态拷贝| KERNEL
-    TS --> |用户态拷贝| KERNEL
-    DART --> |用户态拷贝| KERNEL
-    SWIFT --> |用户态拷贝| KERNEL
-    PHP --> |用户态拷贝| KERNEL
+    DART --> |FFI开销| KERNEL
+    PHP --> |FFI开销| KERNEL
 ```
 
 ## 5. 各语言实现详情
@@ -259,11 +256,9 @@ graph TB
     subgraph "Go 实现"
         MEM[MemoryMappedCache]
         
-        subgraph "文件操作"
-            FILE[os.File]
-            TRUNC[Truncate]
-            SEEK[Seek]
-            RW[Read/Write]
+        subgraph "系统调用"
+            UNIX[syscall.Mmap]
+            WIN[Windows API]
         end
         
         subgraph "并发控制"
@@ -271,17 +266,15 @@ graph TB
         end
     end
     
-    MEM --> FILE
-    FILE --> TRUNC
-    FILE --> SEEK
-    FILE --> RW
+    MEM --> UNIX
+    MEM --> WIN
     MEM --> RWMUTEX
 ```
 
 **关键实现:**
-- 使用 `os.File` 进行文件操作
-- `sync.RWMutex` 实现读写锁
-- 为了 Windows 兼容性，使用文件 I/O 而非平台特定 mmap
+- 使用 `syscall.Mmap` (Unix) 和 Windows API (`CreateFileMapping`)
+- 实现了真正的原生内存映射
+- `sync.RWMutex` 保证并发安全
 
 ### 5.4 Python (hello-python)
 
@@ -379,27 +372,24 @@ graph TB
 graph TB
     subgraph "C# 实现"
         MEM[MemoryMappedCache]
-        FS[FileStream]
+        MMF[MemoryMappedFile]
+        ACCESSOR[MemoryMappedViewAccessor]
         
         subgraph "并发控制"
             RWLS[ReaderWriterLockSlim]
         end
-        
-        subgraph "可选 MMF"
-            MMF[MemoryMappedFile]
-            MVA[MemoryMappedViewAccessor]
-        end
     end
     
-    MEM --> FS
+    MEM --> MMF
+    MMF --> ACCESSOR
     MEM --> RWLS
-    MMF --> MVA
 ```
 
 **关键实现:**
-- 可使用 `System.IO.MemoryMappedFiles` 命名空间
+- 使用 .NET `MemoryMappedFile`
+- `CreateFromFile` 创建文件映射
 - `ReaderWriterLockSlim` 轻量级读写锁
-- `FileStream` 提供基础文件操作
+- `Dispose` + Re-create 实现动态扩容
 
 ### 5.8 Swift (hello-swift)
 
@@ -407,32 +397,29 @@ graph TB
 graph TB
     subgraph "Swift 实现"
         MEM[MemoryMappedCache]
-        FH[FileHandle]
-        FM[FileManager]
+        POSIX[Darwin/LibC]
+        
+        subgraph "系统调用"
+            MMAP[mmap]
+            MUNMAP[munmap]
+            MSYNC[msync]
+        end
         
         subgraph "并发控制"
             NSLOCK[NSLock]
         end
-        
-        subgraph "操作"
-            CREATE[createFile]
-            WRITE[write contentsOf]
-            READ[read upToCount]
-        end
     end
     
-    MEM --> FH
-    MEM --> FM
+    MEM --> POSIX
+    POSIX --> MMAP
+    POSIX --> MUNMAP
     MEM --> NSLOCK
-    FH --> CREATE
-    FH --> WRITE
-    FH --> READ
 ```
 
 **关键实现:**
-- `FileHandle` 进行文件读写
-- `NSLock` 实现互斥锁
-- Foundation 框架提供文件操作
+- 直接调用 `Darwin` 模块的 `mmap` C API
+- `UnsafeMutableRawPointer` 管理内存指针
+- `NSLock` 互斥锁
 
 ### 5.9 Dart (hello-dart)
 
@@ -440,25 +427,23 @@ graph TB
 graph TB
     subgraph "Dart 实现"
         MEM[MemoryMappedCache]
-        RAF[RandomAccessFile]
-        FILE[File]
+        FFI[dart:ffi]
         
-        subgraph "异步支持"
-            ASYNC[async/await]
-            SYNC[Sync 方法]
+        subgraph "Native Bindings"
+            LIBC[libc (mmap)]
+            WIN[kernel32 (CreateFileMapping)]
         end
     end
     
-    MEM --> RAF
-    MEM --> FILE
-    RAF --> ASYNC
-    RAF --> SYNC
+    MEM --> FFI
+    FFI --> LIBC
+    FFI --> WIN
 ```
 
 **关键实现:**
-- `dart:io` 的 `RandomAccessFile`
-- 同时支持同步和异步操作
-- `setPositionSync` / `writeFromSync` 同步写入
+- 使用 `dart:ffi` 调用系统原生 API
+- 跨平台支持 (POSIX mmap / Windows API)
+- 真正的原生内存映射体验
 
 ### 5.10 Node.js (hello-nodejs)
 
@@ -466,32 +451,28 @@ graph TB
 graph TB
     subgraph "Node.js 实现"
         MEM[MemoryMappedCache]
-        FS[fs module]
+        LIB[mmap-io]
         
-        subgraph "同步操作"
-            OPEN[openSync]
-            WRITE[writeSync]
-            READ[readSync]
-            CLOSE[closeSync]
+        subgraph "操作"
+            MAP[map]
+            SYNC[sync]
         end
         
         subgraph "缓冲区"
-            BUF[Buffer.alloc]
+            BUF[Buffer]
         end
     end
     
-    MEM --> FS
-    FS --> OPEN
-    FS --> WRITE
-    FS --> READ
-    FS --> CLOSE
+    MEM --> LIB
+    LIB --> MAP
+    LIB --> SYNC
     MEM --> BUF
 ```
 
 **关键实现:**
-- 使用 `fs` 模块同步 API
-- `Buffer` 作为数据缓冲区
-- 文件描述符直接操作
+- 使用 `mmap-io` 库提供原生 mmap 支持
+- 实现真正的零拷贝内存映射
+- 高性能文件访问
 
 ### 5.11 TypeScript (hello-typescript)
 
@@ -499,32 +480,27 @@ graph TB
 graph TB
     subgraph "TypeScript 实现"
         MEM[MemoryMappedCache]
-        FS[fs module]
+        LIB[mmap-io]
         
         subgraph "类型安全"
-            FD["fd: number or null"]
-            SIZE[size: number]
-            FLAG[isOpenFlag: boolean]
+            BUF[Buffer]
         end
         
         subgraph "操作"
-            FTRUNC[ftruncateSync]
-            FSTAT[fstatSync]
+            MAP[map]
+            SYNC[sync]
         end
     end
     
-    MEM --> FS
-    MEM --> FD
-    MEM --> SIZE
-    MEM --> FLAG
-    FS --> FTRUNC
-    FS --> FSTAT
+    MEM --> LIB
+    LIB --> MAP
+    LIB --> SYNC
 ```
 
 **关键实现:**
-- 与 Node.js 相同的 `fs` API
-- TypeScript 类型系统增强安全性
-- 强类型的文件描述符和状态管理
+- 采用与 Node.js 相同的 `mmap-io` 库
+- 替换了原有的 `fs` 同步 API 实现
+- 完整的原生 mmap 支持
 
 ### 5.12 PHP (hello-php)
 
@@ -532,36 +508,23 @@ graph TB
 graph TB
     subgraph "PHP 实现"
         MEM[MemoryMappedCache]
+        FFI[PHP FFI]
         
-        subgraph "文件操作"
-            FOPEN[fopen c+b]
-            FSEEK[fseek]
-            FWRITE[fwrite]
-            FREAD[fread]
-            FCLOSE[fclose]
-        end
-        
-        subgraph "属性"
-            HANDLE[fileHandle: resource]
-            SIZE[size: int]
-            ISOPEN[isOpen: bool]
+        subgraph "Native Calls"
+            LIBC[mmap/munmap]
+            WIN[CreateFileMapping]
         end
     end
     
-    MEM --> FOPEN
-    MEM --> FSEEK
-    MEM --> FWRITE
-    MEM --> FREAD
-    MEM --> FCLOSE
-    MEM --> HANDLE
-    MEM --> SIZE
-    MEM --> ISOPEN
+    MEM --> FFI
+    FFI --> LIBC
+    FFI --> WIN
 ```
 
 **关键实现:**
-- 使用 PHP 标准文件函数
-- `c+b` 模式创建/打开二进制文件
-- `fseek` 定位偏移量
+- 使用 PHP 7.4+ `FFI` 扩展
+- 直接调用 C 语言标准库或 Windows API
+- 实现内存映射，突破 PHP 文件操作限制
 
 ## 6. 线程安全机制对比
 
@@ -693,28 +656,53 @@ stateDiagram-v2
 ```
 
 ## 10. 总结
-
 ### 实现方式分类
-
-1. **原生 mmap 实现** (C++, Rust, Python, Go*)
+1. **原生 mmap 实现** (C++, Rust, Python, Node.js, Swift, Go)
    - 真正的零拷贝
-   - 直接内存映射
+   - 直接内存映射 (OS API / Syscall)
    - 最佳性能
+   - *Node.js/TypeScript 使用 mmap-io 库*
+   - *Go 使用 syscall (Unix) / syscall (Windows)*
+   - *Swift 使用 Darwin mmap*
 
-2. **JVM/CLR 内存映射** (Java, Kotlin, C#)
-   - 通过运行时提供的 API
+2. **JVM/Framework 内存映射** (Java, Kotlin, C#)
+   - 通过运行时/框架提供的 API
    - 接近原生性能
    - 跨平台一致性
+   - *Java/Kotlin 使用 FileChannel.map (MappedByteBuffer)*
+   - *C# 使用 MemoryMappedFile*
 
-3. **文件 I/O 模拟** (Node.js, TypeScript, Dart, Swift, PHP)
-   - 使用同步文件操作模拟
-   - 实现简单
-   - 性能略低但足够
+3. **FFI 内存映射** (Dart, PHP)
+   - 通过 FFI 调用系统 mmap
+   - 性能取决于 FFI 开销，但底层为原生 mmap
+   - *Dart 使用 dart:ffi*
+   - *PHP 使用 FFI 扩展*
 
 ### 共同设计模式
-
 - **StreamManager**: 单例模式管理所有流
 - **StreamContext**: 流的元数据和状态
 - **MemoryMappedCache**: 底层缓存抽象
 - **读写锁**: 多读单写并发控制
 - **动态扩容**: 按需增长文件大小
+
+| 语言 | 实现方式 | 关键库/API | 扩容策略 | 线程安全 |
+| :--- | :--- | :--- | :--- | :--- |
+| **C++** | Native (POSIX/Win32) | `mmap` / `CreateFileMapping` | `ftruncate` + Remap | `std::shared_mutex` |
+| **Java** | NIO | `MappedByteBuffer` | Re-map | `ReentrantReadWriteLock` |
+| **Kotlin** | NIO | `MappedByteBuffer` | Re-map | `ReentrantReadWriteLock` |
+| **Python** | Native Module | `mmap` module | `resize` | `threading.RLock` |
+| **Rust** | Native Crate | `memmap2` | `mremap` (unix) / Re-map | `std::sync::Mutex` |
+| **Node.js** | Native Wrapper | `mmap-io` | `ftruncate` + Remap | 单线程 (Async I/O) |
+| **Go** | Native Syscall | `syscall.Mmap` / `CreateFileMapping` | Unmap + Truncate + Remap | `sync.RWMutex` |
+| **C#** | Framework API | `MemoryMappedFile` | Dispose + Resize + Re-create | `ReaderWriterLockSlim` |
+| **TypeScript** | Native Wrapper | `mmap-io` | `ftruncate` + Remap | 单线程 (Async I/O) |
+| **Swift** | Native / LibC | `Darwin.mmap` | Unmap + Truncate + Remap | `NSLock` |
+| **Dart** | FFI | `dart:ffi` (libc/kernel32) | FFI Call + Remap | `Isolate` / `Lock` (?) |
+| **PHP** | FFI | `FFI::cdef` (libc/kernel32) | FFI Call + Remap | Flock / None |
+
+### 性能等级
+- **Tier 1 (Native/Zero-copy):** C++, Rust, Go, Swift, Python, Node.js/TS (mmap-io)
+- **Tier 1.5 (Framework Managed):** Java, Kotlin, C#
+- **Tier 2 (FFI Access):** Dart, PHP (depend on FFI overhead)
+
+*注：v2.0.0 版本已移除所有基于 File I/O 的模拟实现，全线升级为 Native/Framework 内存映射。*
