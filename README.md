@@ -235,7 +235,7 @@ node src/server.js
 ./run-client.sh --input ../audio/input/hello.mp3
 ```
 
-**mmap 实现:** 使用 `FFI` 扩展调用原生系统 API
+**mmap 实现:** 使用 `mmap-io` 原生模块实现零拷贝内存映射
 
 ---
 
@@ -287,7 +287,7 @@ cd hello-php
 ./scripts/run-client.sh --input ../audio/input/hello.mp3
 ```
 
-**mmap 实现:** 标准文件函数 `fopen/fread/fwrite`（非 mmap）
+**mmap 实现:** 使用 `FFI` 调用系统原生 `mmap`/`CreateFileMapping`
 
 ---
 
