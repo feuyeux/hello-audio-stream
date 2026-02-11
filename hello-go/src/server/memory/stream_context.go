@@ -11,7 +11,6 @@ type StreamStatus string
 const (
 	StatusUploading StreamStatus = "UPLOADING"
 	StatusReady     StreamStatus = "READY"
-	StatusError     StreamStatus = "ERROR"
 )
 
 // StreamContext contains metadata and state for a single stream
