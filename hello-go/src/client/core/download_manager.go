@@ -15,7 +15,7 @@ func Download(ws *WebSocketClient, streamID string, outputPath string, fileSize 
 	for offset < fileSize {
 		// Calculate how much data we still need
 		remainingBytes := fileSize - offset
-		chunkSize := int(Min(int64(ChunkSize), remainingBytes))
+		chunkSize := int(min(int64(ChunkSize), remainingBytes))
 
 		// Send GET message
 		offsetPtr := offset

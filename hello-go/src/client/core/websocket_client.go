@@ -34,7 +34,7 @@ func Connect(uri string) (*WebSocketClient, error) {
 	}
 
 	client := &WebSocketClient{conn: conn}
-	
+
 	// Wait for and consume CONNECTED message
 	msg, err := client.ReceiveControlMessage()
 	if err == nil && msg.Type == "CONNECTED" {

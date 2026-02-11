@@ -23,10 +23,9 @@ func Run() {
 
 	// Get singleton instances
 	streamMgr := memory.GetStreamManager("cache")
-	memoryPool := memory.GetMemoryPoolManager(65536, 100)
 
 	// Create and start WebSocket server
-	wsServer := network.NewAudioWebSocketServer(*port, *path, streamMgr, memoryPool)
+	wsServer := network.NewAudioWebSocketServer(*port, *path, streamMgr)
 
 	// Handle graceful shutdown
 	go func() {

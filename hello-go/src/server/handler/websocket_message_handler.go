@@ -13,16 +13,14 @@ import (
 // WebSocketMessageHandler handles WebSocket message processing
 type WebSocketMessageHandler struct {
 	streamManager *memory.StreamManager
-	memoryPool    *memory.MemoryPoolManager
 	clients       map[*websocket.Conn]string
 	clientsMutex  *sync.RWMutex
 }
 
 // NewWebSocketMessageHandler creates a new message handler
-func NewWebSocketMessageHandler(streamMgr *memory.StreamManager, memPool *memory.MemoryPoolManager, clients map[*websocket.Conn]string, mutex *sync.RWMutex) *WebSocketMessageHandler {
+func NewWebSocketMessageHandler(streamMgr *memory.StreamManager, clients map[*websocket.Conn]string, mutex *sync.RWMutex) *WebSocketMessageHandler {
 	return &WebSocketMessageHandler{
 		streamManager: streamMgr,
-		memoryPool:    memPool,
 		clients:       clients,
 		clientsMutex:  mutex,
 	}

@@ -23,16 +23,16 @@ func mmap(f *os.File, size int64) ([]byte, error) {
 	}
 
 	// Create a slice from the pointer
-    // Note: This is unsafe, but necessary for mmap
+	// Note: This is unsafe, but necessary for mmap
 	var data []byte
-    
-    // Use unsafe.Slice for newer Go versions (1.17+), but to be safe with older pattern:
-    // reflect.SliceHeader is deprecated, but widely used. 
-    // Let's use unsafe conversion which is cleaner in 1.20+
-    // data = unsafe.Slice((*byte)(unsafe.Pointer(addr)), size)
-    
-    // Since we don't know the exact Go version available (1.25 in go.mod implies we can use modern features)
-    data = unsafe.Slice((*byte)(unsafe.Pointer(addr)), int(size))
+
+	// Use unsafe.Slice for newer Go versions (1.17+), but to be safe with older pattern:
+	// reflect.SliceHeader is deprecated, but widely used.
+	// Let's use unsafe conversion which is cleaner in 1.20+
+	// data = unsafe.Slice((*byte)(unsafe.Pointer(addr)), size)
+
+	// Since we don't know the exact Go version available (1.25 in go.mod implies we can use modern features)
+	data = unsafe.Slice((*byte)(unsafe.Pointer(addr)), int(size))
 
 	return data, nil
 }

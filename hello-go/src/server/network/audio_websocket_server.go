@@ -31,7 +31,7 @@ type AudioWebSocketServer struct {
 }
 
 // NewAudioWebSocketServer creates a new WebSocket server
-func NewAudioWebSocketServer(port int, path string, streamMgr *memory.StreamManager, memPool *memory.MemoryPoolManager) *AudioWebSocketServer {
+func NewAudioWebSocketServer(port int, path string, streamMgr *memory.StreamManager) *AudioWebSocketServer {
 	clients := make(map[*websocket.Conn]string)
 	clientsMutex := &sync.RWMutex{}
 
@@ -40,7 +40,7 @@ func NewAudioWebSocketServer(port int, path string, streamMgr *memory.StreamMana
 		path:           path,
 		clients:        clients,
 		clientsMutex:   clientsMutex,
-		messageHandler: handler.NewWebSocketMessageHandler(streamMgr, memPool, clients, clientsMutex),
+		messageHandler: handler.NewWebSocketMessageHandler(streamMgr, clients, clientsMutex),
 	}
 }
 

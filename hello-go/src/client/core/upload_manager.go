@@ -39,7 +39,7 @@ func Upload(ws *WebSocketClient, filePath string, fileSize int64) (string, error
 	lastProgress := 0
 
 	for offset < fileSize {
-		chunkSize := int(Min(int64(uploadChunkSize), fileSize-offset))
+		chunkSize := int(min(int64(uploadChunkSize), fileSize-offset))
 		chunk, err := ReadChunk(filePath, offset, chunkSize)
 		if err != nil {
 			return "", fmt.Errorf("failed to read chunk: %w", err)
