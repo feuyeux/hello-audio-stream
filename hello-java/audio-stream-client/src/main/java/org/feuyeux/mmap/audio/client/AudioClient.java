@@ -1,16 +1,20 @@
 package org.feuyeux.mmap.audio.client;
 
-import org.feuyeux.mmap.audio.client.core.*;
-import org.feuyeux.mmap.audio.client.util.*;
+import org.feuyeux.mmap.audio.client.core.DownloadManager;
+import org.feuyeux.mmap.audio.client.core.UploadManager;
+import org.feuyeux.mmap.audio.client.core.WebSocketClient;
+import org.feuyeux.mmap.audio.client.util.ErrorHandler;
+import org.feuyeux.mmap.audio.client.util.PerformanceMonitor;
+import org.feuyeux.mmap.audio.client.util.VerificationModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Audio Stream Client Application.
@@ -21,13 +25,12 @@ import java.time.format.DateTimeFormatter;
  * and maintained throughout the application lifecycle. The connection is closed
  * automatically via shutdown hook when the process exits.
  */
-public class AudioClientApplication {
-    private static final Logger logger = LoggerFactory.getLogger(AudioClientApplication.class);
+public class AudioClient {
+    private static final Logger logger = LoggerFactory.getLogger(AudioClient.class);
 
     private static final String DEFAULT_SERVER_URI = "ws://localhost:8080/audio";
-    private static final int DEFAULT_CHUNK_SIZE = 65536; // 64KB
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         // Parse named arguments: --server, --input
         String serverUri = DEFAULT_SERVER_URI;
         String inputFilePath = null;
@@ -55,7 +58,7 @@ public class AudioClientApplication {
         try {
             // Generate output file path with timestamp
             Path outputFile = generateOutputPath(inputFile);
-            
+
             // Ensure output directory exists
             Path outputDir = outputFile.getParent();
             if (outputDir != null && !Files.exists(outputDir)) {
@@ -68,33 +71,28 @@ public class AudioClientApplication {
             logger.info("Output File: {}", outputFile.getFileName());
             logger.info("================================\n");
 
-            String streamId = new StreamIdGenerator().generateShort();
-
             long operationStartTime = System.currentTimeMillis();
 
             // Initialize components
             WebSocketClient wsClient = new WebSocketClient(URI.create(serverUri));
-            FileManager fileManager = new FileManager();
-            ChunkManager chunkManager = new ChunkManager();
             ErrorHandler errorHandler = new ErrorHandler();
             PerformanceMonitor performanceMonitor = new PerformanceMonitor();
-            StreamIdGenerator streamIdGenerator = new StreamIdGenerator();
-            
+
             UploadManager uploadManager = new UploadManager(
-                wsClient, fileManager, chunkManager, errorHandler, performanceMonitor, streamIdGenerator
+                    wsClient, errorHandler, performanceMonitor
             );
             DownloadManager downloadManager = new DownloadManager(
-                wsClient, fileManager, chunkManager, errorHandler
+                    wsClient, errorHandler
             );
 
             // Connect to server with retry
-            if (!wsClient.connectWithRetry(10)) {
+            if (!wsClient.connectWithRetry(3)) {
                 logger.error("Failed to connect to server after retries");
                 System.exit(1);
             }
 
             // 添加关闭钩子，确保进程退出时关闭连接（长连接）
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            Runtime.getRuntime().addShutdownHook(Thread.ofVirtual().unstarted(() -> {
                 logger.info("Shutdown hook: Closing WebSocket connection...");
                 wsClient.close();
             }));
@@ -107,42 +105,40 @@ public class AudioClientApplication {
                 // 1. 上传音频
                 logger.info("[1/3] Uploading file...");
                 uploadStreamId = uploadManager.uploadFile(inputFile);
-                
+
                 if (uploadStreamId.isEmpty()) {
                     logger.error("Upload failed");
                     System.exit(1);
                 }
-                
+
                 PerformanceMonitor.PerformanceMetrics uploadMetrics = performanceMonitor.getMetrics();
-                logger.info("Upload result: streamId={}, duration={}ms, throughput={} Mbps", 
-                    uploadStreamId, uploadMetrics.uploadDurationMs, 
-                    String.format("%.2f", uploadMetrics.uploadThroughputMbps));
+                logger.info("Upload result: streamId={}, duration={}ms, throughput={} Mbps",
+                        uploadStreamId, uploadMetrics.uploadDurationMs, uploadMetrics.uploadThroughputMbps);
 
                 // 2. 上传成功后sleep2秒
                 logger.info("Upload successful, sleeping for 2 seconds...");
-                Thread.sleep(2000);
+                TimeUnit.SECONDS.sleep(2);
 
                 // 3. 下载音频
                 logger.info("[2/3] Downloading file...");
                 performanceMonitor.startDownload();
                 downloadSuccess = downloadManager.downloadFile(uploadStreamId, outputFile, 0);
-                
+
                 if (!downloadSuccess) {
                     logger.error("Download failed: {}", downloadManager.getLastError());
                     System.exit(1);
                 }
-                
+
                 long downloadedBytes = downloadManager.getBytesDownloaded();
                 performanceMonitor.endDownload(downloadedBytes);
-                
+
                 PerformanceMonitor.PerformanceMetrics downloadMetrics = performanceMonitor.getMetrics();
-                logger.info("Download result: success={}, duration={}ms, throughput={} Mbps", 
-                    downloadSuccess, downloadMetrics.downloadDurationMs,
-                    String.format("%.2f", downloadMetrics.downloadThroughputMbps));
+                logger.info("Download result: success={}, duration={}ms, throughput={} Mbps",
+                        true, downloadMetrics.downloadDurationMs, downloadMetrics.downloadThroughputMbps);
 
                 // 4. 下载成功后sleep2秒
                 logger.info("Download successful, sleeping for 2 seconds...");
-                Thread.sleep(2000);
+                TimeUnit.SECONDS.sleep(2);
 
                 // 5. 比较上传和下载的音频
                 logger.info("[3/3] Comparing files...");
@@ -160,12 +156,12 @@ public class AudioClientApplication {
 
             boolean isSuccess = verificationResult.isVerificationPassed();
             PerformanceMonitor.PerformanceMetrics metrics = performanceMonitor.getMetrics();
-            
+
             String duration = String.format("Total Duration: %d ms (%.2f seconds)",
                     totalDurationMs, totalDurationMs / 1000.0);
             String upThroughput = String.format("Upload Throughput: %.2f Mbps", metrics.uploadThroughputMbps);
             String downThroughput = String.format("Download Throughput: %.2f Mbps", metrics.downloadThroughputMbps);
-            
+
             logger.info("\n=== Operation Summary ===");
             logger.info("Stream ID: {}", uploadStreamId);
             logger.info(duration);
@@ -201,7 +197,7 @@ public class AudioClientApplication {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
         String originalName = inputFile.getFileName().toString();
         String outputName = "output-" + timestamp + "-" + originalName;
-        
+
         // Use audio/output directory relative to current working directory
         Path outputDir = Path.of("audio", "output");
         return outputDir.resolve(outputName);

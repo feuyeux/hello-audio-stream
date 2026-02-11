@@ -1,6 +1,7 @@
 # Audio Stream Cache - Java Implementation
 
-This directory contains a Java implementation of an audio stream cache utility that supports both upload and download operations using WebSocket communication.
+This directory contains a Java implementation of an audio stream cache utility that supports both upload and download
+operations using WebSocket communication.
 
 ## Features
 
@@ -66,7 +67,8 @@ mvn clean package -DskipTests
 java --enable-preview -jar target/audio-stream-client-1.0.0.jar
 ```
 
-**Note**: This project requires JDK 25 and uses preview features. The `--enable-preview` flag is required when running the application.
+**Note**: This project requires JDK 25 and uses preview features. The `--enable-preview` flag is required when running
+the application.
 
 ## Testing
 

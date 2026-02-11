@@ -4,11 +4,14 @@ import org.feuyeux.mmap.audio.client.util.ErrorHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Download manager for orchestrating file downloads from the server.
@@ -18,35 +21,28 @@ import java.util.List;
 public class DownloadManager {
     private static final Logger logger = LoggerFactory.getLogger(DownloadManager.class);
     private static final int MAX_RETRIES = 3;
+    private static final int CHUNK_SIZE = 65536; // 64KB
 
     private final WebSocketClient client;
-    private final FileManager fileManager;
-    private final ChunkManager chunkManager;
     private final ErrorHandler errorHandler;
 
     private String lastError;
     private long bytesDownloaded;
-    private long totalSize;
+
     private int requestTimeoutMs;
     private int maxRetries;
 
     /**
      * Create a download manager.
      *
-     * @param client WebSocket client
-     * @param fileManager file manager
-     * @param chunkManager chunk manager
+     * @param client       WebSocket client
      * @param errorHandler error handler (optional)
      */
-    public DownloadManager(WebSocketClient client, FileManager fileManager,
-                           ChunkManager chunkManager, ErrorHandler errorHandler) {
+    public DownloadManager(WebSocketClient client, ErrorHandler errorHandler) {
         this.client = client;
-        this.fileManager = fileManager;
-        this.chunkManager = chunkManager;
         this.errorHandler = errorHandler;
         this.lastError = "";
         this.bytesDownloaded = 0;
-        this.totalSize = 0;
         this.requestTimeoutMs = 5000;
         this.maxRetries = MAX_RETRIES;
     }
@@ -54,19 +50,8 @@ public class DownloadManager {
     /**
      * Download a file from the server.
      *
-     * @param streamId stream identifier to download from
-     * @param outputPath path to write the downloaded file
-     * @return true if download was successful
-     */
-    public boolean downloadFile(String streamId, String outputPath) {
-        return downloadFile(streamId, Path.of(outputPath), 0);
-    }
-
-    /**
-     * Download a file from the server.
-     *
-     * @param streamId stream identifier to download from
-     * @param outputPath path to write the downloaded file
+     * @param streamId     stream identifier to download from
+     * @param outputPath   path to write the downloaded file
      * @param expectedSize expected size of the file (0 if unknown)
      * @return true if download was successful
      */
@@ -74,7 +59,6 @@ public class DownloadManager {
         logger.info("Starting download - StreamId: {}, Output: {}", streamId, outputPath);
 
         this.bytesDownloaded = 0;
-        this.totalSize = expectedSize;
         this.lastError = "";
 
         try {
@@ -95,9 +79,9 @@ public class DownloadManager {
 
                 while (retries < maxRetries && chunkData == null) {
                     client.clearMessages();
-                    
-                    if (!sendGetRequest(streamId, offset, chunkManager.getChunkSize())) {
-                        return handleProtocolError("Failed to send GET request", streamId);
+
+                    if (!sendGetRequest(streamId, offset)) {
+                        return handleProtocolError(streamId);
                     }
 
                     chunkData = client.waitForBinaryMessage(requestTimeoutMs);
@@ -111,8 +95,10 @@ public class DownloadManager {
                         }
                         retries++;
                         if (retries < maxRetries) {
-                            logger.warn("No data received at offset: {}, retry {}/{}", offset, retries, maxRetries);
-                            Thread.sleep(100);
+                            long backoffMs = 100L * (1L << (retries - 1));
+                            logger.warn("No data received at offset: {}, retry {}/{}, backoff {}ms",
+                                    offset, retries, maxRetries, backoffMs);
+                            TimeUnit.MILLISECONDS.sleep(backoffMs);
                         }
                     }
                 }
@@ -133,36 +119,27 @@ public class DownloadManager {
                     return false;
                 }
 
-                if (chunkData != null) {
-                    downloadedChunks.add(chunkData);
-                    bytesDownloaded += chunkData.length;
-                    offset += chunkData.length;
+                downloadedChunks.add(chunkData);
+                bytesDownloaded += chunkData.length;
+                offset += chunkData.length;
 
-                    if (downloadedChunks.size() % 100 == 0) {
-                        logger.info("Download progress: {} bytes, {} chunks", bytesDownloaded, downloadedChunks.size());
-                    }
-                    
-                    // Check if we received less data than requested - indicates end of file
-                    if (chunkData.length < chunkManager.getChunkSize()) {
-                        logger.info("Download completed at offset: {} (received partial chunk)", offset);
-                        hasMoreData = false;
-                    }
+                if (downloadedChunks.size() % 100 == 0) {
+                    logger.info("Download progress: {} bytes, {} chunks", bytesDownloaded, downloadedChunks.size());
+                }
+
+                // Check if we received less data than requested - indicates end of file
+                if (chunkData.length < CHUNK_SIZE) {
+                    logger.info("Download completed at offset: {} (received partial chunk)", offset);
+                    hasMoreData = false;
                 }
             }
 
             // Write all chunks to file
-            if (!fileManager.openForWriting(outputPath)) {
-                return handleProtocolError("Failed to open output file for writing", outputPath.toString());
-            }
-
-            for (byte[] chunk : downloadedChunks) {
-                if (!fileManager.write(chunk)) {
-                    fileManager.closeWriter();
-                    return handleProtocolError("Failed to write chunk to file", outputPath.toString());
+            try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(outputPath))) {
+                for (byte[] chunk : downloadedChunks) {
+                    out.write(chunk);
                 }
             }
-
-            fileManager.closeWriter();
 
             logger.info("Download completed - Total chunks: {}, Total bytes: {}",
                     downloadedChunks.size(), bytesDownloaded);
@@ -198,18 +175,6 @@ public class DownloadManager {
     }
 
     /**
-     * Get download progress (0.0 to 1.0).
-     *
-     * @return progress as a fraction
-     */
-    public double getProgress() {
-        if (totalSize <= 0) {
-            return 0.0;
-        }
-        return (double) bytesDownloaded / totalSize;
-    }
-
-    /**
      * Get total bytes downloaded.
      *
      * @return number of bytes downloaded
@@ -218,50 +183,21 @@ public class DownloadManager {
         return bytesDownloaded;
     }
 
-    /**
-     * Set timeout for GET requests.
-     *
-     * @param timeoutMs timeout in milliseconds
-     */
-    public void setRequestTimeout(int timeoutMs) {
-        this.requestTimeoutMs = timeoutMs;
-    }
-
-    /**
-     * Set maximum retry attempts for failed requests.
-     *
-     * @param maxRetries maximum number of retry attempts
-     */
-    public void setMaxRetries(int maxRetries) {
-        this.maxRetries = maxRetries;
-    }
-
-    /**
-     * Handle server response message (called from main message router).
-     *
-     * @param message server response message
-     */
-    public void handleServerResponse(String message) {
-        logger.debug("Received server response during download: {}", message);
-        // Handle responses if needed
-    }
-
     // Private helper methods
 
     /**
      * Send a GET request for a specific chunk.
      *
      * @param streamId stream identifier
-     * @param offset byte offset to request
-     * @param length number of bytes to request
+     * @param offset   byte offset to request
      * @return true if request was sent successfully
      */
-    private boolean sendGetRequest(String streamId, long offset, int length) {
+    private boolean sendGetRequest(String streamId, long offset) {
         try {
             String message = String.format("{\"type\":\"GET\",\"streamId\":\"%s\",\"offset\":%d,\"length\":%d}",
-                    streamId, offset, length);
+                    streamId, offset, DownloadManager.CHUNK_SIZE);
             client.sendTextMessage(message);
-            logger.debug("Sent GET request - stream: {}, offset: {}, length: {}", streamId, offset, length);
+            logger.debug("Sent GET request - stream: {}, offset: {}, length: {}", streamId, offset, DownloadManager.CHUNK_SIZE);
             return true;
         } catch (Exception e) {
             if (errorHandler != null) {
@@ -288,16 +224,15 @@ public class DownloadManager {
     /**
      * Handle protocol errors with proper error reporting.
      *
-     * @param message error message
      * @param context error context
      * @return false (always fails)
      */
-    private boolean handleProtocolError(String message, String context) {
+    private boolean handleProtocolError(String context) {
         if (errorHandler != null) {
-            errorHandler.reportError(ErrorHandler.ErrorType.PROTOCOL_ERROR, message, context, false);
+            errorHandler.reportError(ErrorHandler.ErrorType.PROTOCOL_ERROR, "Failed to send GET request", context, false);
         }
-        logger.error("{} - Context: {}", message, context);
-        lastError = message;
+        logger.error("{} - Context: {}", "Failed to send GET request", context);
+        lastError = "Failed to send GET request";
         return false;
     }
 }

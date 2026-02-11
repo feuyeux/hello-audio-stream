@@ -36,15 +36,6 @@ public class StreamContext {
         this.streamId = streamId;
     }
 
-    // Getters and setters
-    public String getStreamId() {
-        return streamId;
-    }
-
-    public void setStreamId(String streamId) {
-        this.streamId = streamId;
-    }
-
     public String getCachePath() {
         return cachePath;
     }
@@ -75,10 +66,6 @@ public class StreamContext {
 
     public void setTotalSize(long totalSize) {
         this.totalSize = totalSize;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
     }
 
     public void setCreatedAt(Instant createdAt) {

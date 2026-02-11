@@ -19,115 +19,9 @@ public class VerificationModule {
     private static final Logger logger = LoggerFactory.getLogger(VerificationModule.class);
 
     /**
-     * Compute MD5 checksum for a file.
-     *
-     * @param filePath path to the file
-     * @return MD5 checksum as hex string
-     * @throws IOException if file cannot be read
-     */
-    public String computeMD5(String filePath) throws IOException {
-        return computeMD5(Path.of(filePath));
-    }
-
-    /**
-     * Compute MD5 checksum for a file.
-     *
-     * @param filePath path to the file
-     * @return MD5 checksum as hex string
-     * @throws IOException if file cannot be read
-     */
-    public String computeMD5(Path filePath) throws IOException {
-        byte[] data = Files.readAllBytes(filePath);
-        return calculateMD5(data);
-    }
-
-    /**
-     * Compute SHA-1 checksum for a file.
-     *
-     * @param filePath path to the file
-     * @return SHA-1 checksum as hex string
-     * @throws IOException if file cannot be read
-     */
-    public String computeSHA1(String filePath) throws IOException {
-        return computeSHA1(Path.of(filePath));
-    }
-
-    /**
-     * Compute SHA-1 checksum for a file.
-     *
-     * @param filePath path to the file
-     * @return SHA-1 checksum as hex string
-     * @throws IOException if file cannot be read
-     */
-    public String computeSHA1(Path filePath) throws IOException {
-        byte[] data = Files.readAllBytes(filePath);
-        return calculateSHA1(data);
-    }
-
-    /**
-     * Compute SHA-256 checksum for a file.
-     *
-     * @param filePath path to the file
-     * @return SHA-256 checksum as hex string
-     * @throws IOException if file cannot be read
-     */
-    public String computeSHA256(String filePath) throws IOException {
-        return computeSHA256(Path.of(filePath));
-    }
-
-    /**
-     * Compute SHA-256 checksum for a file.
-     *
-     * @param filePath path to the file
-     * @return SHA-256 checksum as hex string
-     * @throws IOException if file cannot be read
-     */
-    public String computeSHA256(Path filePath) throws IOException {
-        byte[] data = Files.readAllBytes(filePath);
-        return calculateSHA256(data);
-    }
-
-    /**
-     * Compare two files for equality.
-     *
-     * @param file1 path to first file
-     * @param file2 path to second file
-     * @return true if files are identical, false otherwise
-     * @throws IOException if files cannot be read
-     */
-    public boolean compareFiles(String file1, String file2) throws IOException {
-        return compareFiles(Path.of(file1), Path.of(file2));
-    }
-
-    /**
-     * Compare two files for equality.
-     *
-     * @param file1 path to first file
-     * @param file2 path to second file
-     * @return true if files are identical, false otherwise
-     * @throws IOException if files cannot be read
-     */
-    public boolean compareFiles(Path file1, Path file2) throws IOException {
-        VerificationReport report = generateReport(file1, file2);
-        return report.isVerificationPassed();
-    }
-
-    /**
      * Generate a detailed verification report comparing two files.
      *
-     * @param originalFile path to original file
-     * @param downloadedFile path to downloaded file
-     * @return verification report with detailed comparison results
-     * @throws IOException if files cannot be read
-     */
-    public VerificationReport generateReport(String originalFile, String downloadedFile) throws IOException {
-        return generateReport(Path.of(originalFile), Path.of(downloadedFile));
-    }
-
-    /**
-     * Generate a detailed verification report comparing two files.
-     *
-     * @param originalFile path to original file
+     * @param originalFile   path to original file
      * @param downloadedFile path to downloaded file
      * @return verification report with detailed comparison results
      * @throws IOException if files cannot be read
@@ -180,9 +74,6 @@ public class VerificationModule {
         }
 
         // Use SHA-256 as the primary checksum (matching C++ implementation)
-        String originalChecksum = originalSha256;
-        String downloadedChecksum = downloadedSha256;
-
         String errorMessage = null;
         if (!verificationPassed) {
             errorMessage = String.format("Verification failed: size match=%s, MD5 match=%s, SHA-1 match=%s, SHA-256 match=%s",
@@ -192,7 +83,7 @@ public class VerificationModule {
         VerificationReport report = new VerificationReport(
                 originalFile.toString(), downloadedFile.toString(),
                 originalSize, downloadedSize,
-                originalChecksum, downloadedChecksum,
+                originalSha256, downloadedSha256,
                 verificationPassed, errorMessage,
                 originalMd5, downloadedMd5,
                 originalSha1, downloadedSha1,
@@ -297,56 +188,8 @@ public class VerificationModule {
             this.totalDifferences = totalDifferences;
         }
 
-        // Getters matching C++ interface
-
-        public String getOriginalPath() {
-            return originalPath;
-        }
-
-        public String getDownloadedPath() {
-            return downloadedPath;
-        }
-
-        public long getOriginalSize() {
-            return originalSize;
-        }
-
-        public long getDownloadedSize() {
-            return downloadedSize;
-        }
-
-        public String getOriginalChecksum() {
-            return originalChecksum;
-        }
-
-        public String getDownloadedChecksum() {
-            return downloadedChecksum;
-        }
-
         public boolean isVerificationPassed() {
             return verificationPassed;
-        }
-
-        public String getErrorMessage() {
-            return errorMessage;
-        }
-
-        // Additional getters for detailed information
-
-        public boolean isSizeMatch() {
-            return sizeMatch;
-        }
-
-        public boolean isMd5Match() {
-            return md5Match;
-        }
-
-        public boolean isSha1Match() {
-            return sha1Match;
-        }
-
-        public boolean isSha256Match() {
-            return sha256Match;
         }
 
         /**

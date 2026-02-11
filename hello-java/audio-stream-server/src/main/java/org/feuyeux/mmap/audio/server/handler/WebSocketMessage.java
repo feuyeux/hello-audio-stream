@@ -81,45 +81,16 @@ public class WebSocketMessage {
         return MAPPER.writeValueAsString(this);
     }
 
-    // Getters and Setters
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
     public String getStreamId() {
         return streamId;
-    }
-
-    public void setStreamId(String streamId) {
-        this.streamId = streamId;
     }
 
     public Long getOffset() {
         return offset;
     }
 
-    public void setOffset(Long offset) {
-        this.offset = offset;
-    }
-
     public Integer getLength() {
         return length;
-    }
-
-    public void setLength(Integer length) {
-        this.length = length;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
     }
 
     @Override

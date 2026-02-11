@@ -5,9 +5,15 @@
 set -e
 
 # Set JAVA_HOME based on OS
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS
-    export JAVA_HOME="/opt/homebrew/opt/java/libexec/openjdk.jdk/Contents/Home"
+if [[ -z "$JAVA_HOME" ]]; then
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        export JAVA_HOME="/opt/homebrew/opt/java/libexec/openjdk.jdk/Contents/Home"
+    elif [[ "$OSTYPE" == "linux"* ]]; then
+        JAVA_BIN=$(readlink -f "$(which java)" 2>/dev/null)
+        if [[ -n "$JAVA_BIN" ]]; then
+            export JAVA_HOME="${JAVA_BIN%/bin/java}"
+        fi
+    fi
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

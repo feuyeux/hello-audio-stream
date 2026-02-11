@@ -3,11 +3,6 @@ package org.feuyeux.mmap.audio.client.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-
 /**
  * Performance monitor for tracking stream metrics.
  * Records timestamps and calculates throughput.
@@ -15,10 +10,6 @@ import java.nio.file.StandardOpenOption;
  */
 public class PerformanceMonitor {
     private static final Logger logger = LoggerFactory.getLogger(PerformanceMonitor.class);
-    
-    // Performance targets
-    private static final double UPLOAD_TARGET_MBPS = 100.0;
-    private static final double DOWNLOAD_TARGET_MBPS = 200.0;
 
     private final PerformanceMetrics metrics;
 
@@ -45,7 +36,7 @@ public class PerformanceMonitor {
         metrics.uploadEndTime = System.currentTimeMillis();
         metrics.uploadDurationMs = metrics.uploadEndTime - metrics.uploadStartTime;
         metrics.uploadThroughputMbps = calculateThroughputMbps(bytes, metrics.uploadDurationMs);
-        
+
         logger.info("Upload completed: {} bytes in {} ms ({} Mbps)",
                 bytes, metrics.uploadDurationMs, String.format("%.2f", metrics.uploadThroughputMbps));
     }
@@ -69,7 +60,7 @@ public class PerformanceMonitor {
         metrics.downloadEndTime = System.currentTimeMillis();
         metrics.downloadDurationMs = metrics.downloadEndTime - metrics.downloadStartTime;
         metrics.downloadThroughputMbps = calculateThroughputMbps(bytes, metrics.downloadDurationMs);
-        
+
         logger.info("Download completed: {} bytes in {} ms ({} Mbps)",
                 bytes, metrics.downloadDurationMs, String.format("%.2f", metrics.downloadThroughputMbps));
     }
@@ -85,87 +76,13 @@ public class PerformanceMonitor {
         return metrics;
     }
 
-    /**
-     * Generate a formatted performance report.
-     *
-     * @return report string
-     */
-    public String generateReport() {
-        StringBuilder report = new StringBuilder();
-        report.append("\n=== Performance Report ===\n");
-        
-        if (metrics.uploadDurationMs > 0) {
-            report.append(String.format("Upload Duration: %d ms\n", metrics.uploadDurationMs));
-            report.append(String.format("Upload Throughput: %.2f Mbps\n", metrics.uploadThroughputMbps));
-        }
-        
-        if (metrics.downloadDurationMs > 0) {
-            report.append(String.format("Download Duration: %d ms\n", metrics.downloadDurationMs));
-            report.append(String.format("Download Throughput: %.2f Mbps\n", metrics.downloadThroughputMbps));
-        }
-        
-        report.append(String.format("Performance Targets: Upload >%.0f Mbps, Download >%.0f Mbps\n",
-                UPLOAD_TARGET_MBPS, DOWNLOAD_TARGET_MBPS));
-        report.append(String.format("Targets Met: %s\n", meetsPerformanceTargets() ? "YES" : "NO"));
-        report.append("==========================\n");
-        
-        return report.toString();
-    }
-
-    // Logging functionality
-
-    /**
-     * Log metrics to console.
-     */
-    public void logMetricsToConsole() {
-        String report = generateReport();
-        System.out.print(report);
-        logger.info("Performance metrics logged to console");
-    }
-
-    /**
-     * Log metrics to a file.
-     *
-     * @param filePath path to the log file
-     */
-    public void logMetricsToFile(String filePath) {
-        try {
-            String report = generateReport();
-            Path path = Path.of(filePath);
-            
-            // Create parent directories if needed
-            Path parentDir = path.getParent();
-            if (parentDir != null && !Files.exists(parentDir)) {
-                Files.createDirectories(parentDir);
-            }
-            
-            // Append to file
-            Files.writeString(path, report, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            logger.info("Performance metrics logged to file: {}", filePath);
-        } catch (IOException e) {
-            logger.error("Failed to log metrics to file: {}", filePath, e);
-        }
-    }
-
-    // Performance validation
-
-    /**
-     * Check if performance targets are met.
-     *
-     * @return true if both upload and download meet targets
-     */
-    public boolean meetsPerformanceTargets() {
-        boolean uploadMeetsTarget = metrics.uploadThroughputMbps >= UPLOAD_TARGET_MBPS;
-        boolean downloadMeetsTarget = metrics.downloadThroughputMbps >= DOWNLOAD_TARGET_MBPS;
-        return uploadMeetsTarget && downloadMeetsTarget;
-    }
 
     // Private helper methods
 
     /**
      * Calculate throughput in Mbps.
      *
-     * @param bytes number of bytes transferred
+     * @param bytes      number of bytes transferred
      * @param durationMs duration in milliseconds
      * @return throughput in Mbps
      */
@@ -178,24 +95,6 @@ public class PerformanceMonitor {
     }
 
     /**
-     * Format bytes to human-readable string.
-     *
-     * @param bytes number of bytes
-     * @return formatted string
-     */
-    private String formatBytes(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
-        } else if (bytes < 1024 * 1024) {
-            return String.format("%.2f KB", bytes / 1024.0);
-        } else if (bytes < 1024 * 1024 * 1024) {
-            return String.format("%.2f MB", bytes / (1024.0 * 1024.0));
-        } else {
-            return String.format("%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
-        }
-    }
-
-    /**
      * Performance metrics data class.
      */
     public static class PerformanceMetrics {
@@ -203,7 +102,7 @@ public class PerformanceMonitor {
         public long uploadEndTime;
         public long uploadDurationMs;
         public double uploadThroughputMbps;
-        
+
         public long downloadStartTime;
         public long downloadEndTime;
         public long downloadDurationMs;

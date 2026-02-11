@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * WebSocket message handler using legacy protocol.
- * 
+ * <p>
  * Protocol:
  * - Text messages: {"type":"start|stop|get", "streamId":"xxx", ...}
  * - Binary frames: raw audio data
@@ -89,7 +89,7 @@ public class WebSocketMessageHandler extends SimpleChannelInboundHandler<WebSock
             logger.warn("Start message missing streamId, using connectionId as streamId");
             this.streamId = connectionId;
         }
-        
+
         // Create stream in StreamManager
         if (streamManager.createStream(streamId)) {
             logger.info("Stream started with ID: {} for connection: {}", streamId, connectionId);
@@ -151,9 +151,9 @@ public class WebSocketMessageHandler extends SimpleChannelInboundHandler<WebSock
             ByteBuf buf = frame.content();
             byte[] data = new byte[buf.readableBytes()];
             buf.readBytes(data);
-            
+
             streamManager.writeChunk(streamId, data);
-            
+
             logger.debug("Wrote {} bytes to stream: {}", data.length, streamId);
         } catch (Exception e) {
             logger.error("Error writing binary data for stream: {}", streamId, e);
@@ -182,10 +182,10 @@ public class WebSocketMessageHandler extends SimpleChannelInboundHandler<WebSock
     public void channelActive(ChannelHandlerContext ctx) {
         connectionId = "conn-" + connectionCounter.incrementAndGet();
         logger.info("New connection established: {}", connectionId);
-        
+
         // Send connection established message using POJO
         sendResponse(ctx, WebSocketMessage.connected(connectionId, "Connection established"));
-        
+
         try {
             super.channelActive(ctx);
         } catch (Exception e) {
@@ -198,7 +198,7 @@ public class WebSocketMessageHandler extends SimpleChannelInboundHandler<WebSock
         if (connectionId != null) {
             logger.info("Connection closed: {}", connectionId);
         }
-        
+
         try {
             super.channelInactive(ctx);
         } catch (Exception e) {

@@ -112,15 +112,14 @@ public class StreamManager {
      * Delete a stream.
      *
      * @param streamId unique identifier for the stream
-     * @return true if successful
      */
-    public boolean deleteStream(String streamId) {
+    public void deleteStream(String streamId) {
         mutex.lock();
         try {
             StreamContext context = streams.get(streamId);
             if (context == null) {
                 logger.warn("Stream not found for deletion: {}", streamId);
-                return false;
+                return;
             }
 
             // Close memory-mapped file
@@ -135,11 +134,9 @@ public class StreamManager {
             streams.remove(streamId);
 
             logger.info("Deleted stream: {}", streamId);
-            return true;
 
         } catch (IOException e) {
             logger.error("Failed to delete stream {}: {}", streamId, e.getMessage(), e);
-            return false;
         } finally {
             mutex.unlock();
         }
@@ -164,18 +161,17 @@ public class StreamManager {
      *
      * @param streamId unique identifier for the stream
      * @param data     data to write
-     * @return true if successful
      */
-    public boolean writeChunk(String streamId, byte[] data) {
+    public void writeChunk(String streamId, byte[] data) {
         StreamContext stream = getStream(streamId);
         if (stream == null) {
             logger.error("Stream not found for write: {}", streamId);
-            return false;
+            return;
         }
 
         if (stream.getStatus() != StreamContext.StreamStatus.UPLOADING) {
             logger.error("Stream {} is not in uploading state", streamId);
-            return false;
+            return;
         }
 
         try {
@@ -190,15 +186,12 @@ public class StreamManager {
 
                 logger.debug("Wrote {} bytes to stream {} at offset {}",
                         written, streamId, stream.getCurrentOffset() - written);
-                return true;
             } else {
                 logger.error("Failed to write data to stream {}", streamId);
-                return false;
             }
 
         } catch (IOException e) {
             logger.error("Error writing to stream {}: {}", streamId, e.getMessage(), e);
-            return false;
         }
     }
 
@@ -234,43 +227,6 @@ public class StreamManager {
         } catch (IOException e) {
             logger.error("Error reading from stream {}: {}", streamId, e.getMessage(), e);
             return new byte[0];
-        }
-    }
-
-    /**
-     * Finalize a stream (flush and mark as ready).
-     *
-     * @param streamId unique identifier for the stream
-     * @return true if successful
-     */
-    public boolean finalizeStream(String streamId) {
-        StreamContext stream = getStream(streamId);
-        if (stream == null) {
-            logger.error("Stream not found for finalization: {}", streamId);
-            return false;
-        }
-
-        if (stream.getStatus() != StreamContext.StreamStatus.UPLOADING) {
-            logger.warn("Stream {} is not in uploading state for finalization", streamId);
-            return false;
-        }
-
-        try {
-            // Finalize memory-mapped file
-            if (stream.getMmapFile().finalize(stream.getTotalSize())) {
-                stream.setStatus(StreamContext.StreamStatus.READY);
-                stream.setLastAccessedAt(Instant.now());
-
-                logger.info("Finalized stream: {} with {} bytes", streamId, stream.getTotalSize());
-                return true;
-            } else {
-                logger.error("Failed to finalize memory-mapped file for stream {}", streamId);
-                return false;
-            }
-
-        } catch (IOException e) {
-            logger.error("Error finalizing stream {}: {}", streamId, e.getMessage(), e);
-            return false;
         }
     }
 

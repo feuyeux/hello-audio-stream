@@ -2,13 +2,14 @@ package org.feuyeux.mmap.audio.client.core;
 
 import org.feuyeux.mmap.audio.client.util.ErrorHandler;
 import org.feuyeux.mmap.audio.client.util.PerformanceMonitor;
-import org.feuyeux.mmap.audio.client.util.StreamIdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 /**
@@ -20,61 +21,41 @@ public class UploadManager {
     private static final Logger logger = LoggerFactory.getLogger(UploadManager.class);
     private static final int MESSAGE_PAUSE_MS = 500;
     private static final int DEFAULT_UPLOAD_DELAY_MS = 10;
+    private static final int CHUNK_SIZE = 65536; // 64KB
 
     private final WebSocketClient client;
-    private final FileManager fileManager;
-    private final ChunkManager chunkManager;
     private final ErrorHandler errorHandler;
     private final PerformanceMonitor performanceMonitor;
-    private final StreamIdGenerator streamIdGenerator;
 
     private BiConsumer<Long, Long> progressCallback;
-    private int responseTimeoutMs;
+
     private int uploadDelayMs;
 
     /**
      * Create an upload manager.
      *
-     * @param client WebSocket client
+     * @param client       WebSocket client
      * @param errorHandler error handler (optional)
      */
     public UploadManager(WebSocketClient client, ErrorHandler errorHandler) {
-        this(client, new FileManager(), new ChunkManager(), errorHandler,
-                new PerformanceMonitor(), new StreamIdGenerator());
+        this(client, errorHandler, new PerformanceMonitor());
     }
 
     /**
      * Create an upload manager with all dependencies.
      *
-     * @param client WebSocket client
-     * @param fileManager file manager
-     * @param chunkManager chunk manager
-     * @param errorHandler error handler
+     * @param client             WebSocket client
+     * @param errorHandler       error handler
      * @param performanceMonitor performance monitor
-     * @param streamIdGenerator stream ID generator
      */
-    public UploadManager(WebSocketClient client, FileManager fileManager, ChunkManager chunkManager,
-                         ErrorHandler errorHandler, PerformanceMonitor performanceMonitor,
-                         StreamIdGenerator streamIdGenerator) {
+    public UploadManager(WebSocketClient client, ErrorHandler errorHandler,
+                         PerformanceMonitor performanceMonitor) {
         this.client = client;
-        this.fileManager = fileManager;
-        this.chunkManager = chunkManager;
         this.errorHandler = errorHandler;
         this.performanceMonitor = performanceMonitor;
-        this.streamIdGenerator = streamIdGenerator;
-        this.responseTimeoutMs = 5000;
         this.uploadDelayMs = DEFAULT_UPLOAD_DELAY_MS;
     }
 
-    /**
-     * Upload a file to the server.
-     *
-     * @param filePath path to the file to upload
-     * @return generated stream ID if successful, empty string if failed
-     */
-    public String uploadFile(String filePath) {
-        return uploadFile(Path.of(filePath));
-    }
 
     /**
      * Upload a file to the server.
@@ -94,7 +75,7 @@ public class UploadManager {
 
         try {
             long fileSize = Files.size(filePath);
-            String streamId = streamIdGenerator.generateShort();
+            String streamId = generateStreamId();
 
             logger.info("Starting upload - File: {}, Size: {} bytes, StreamId: {}",
                     filePath.getFileName(), fileSize, streamId);
@@ -116,14 +97,14 @@ public class UploadManager {
                 return "";
             }
 
-            Thread.sleep(MESSAGE_PAUSE_MS);
+            TimeUnit.MILLISECONDS.sleep(MESSAGE_PAUSE_MS);
 
             // Send file chunks
             if (!sendFileChunks(filePath, fileSize)) {
                 return "";
             }
 
-            Thread.sleep(MESSAGE_PAUSE_MS);
+            TimeUnit.MILLISECONDS.sleep(MESSAGE_PAUSE_MS);
 
             // Send STOP message
             if (!sendStopMessage(streamId)) {
@@ -151,52 +132,6 @@ public class UploadManager {
             logger.error("Upload interrupted for file: {}", filePath, e);
             return "";
         }
-    }
-
-    /**
-     * Set callback for upload progress.
-     *
-     * @param callback function called with (bytesUploaded, totalBytes)
-     */
-    public void setProgressCallback(BiConsumer<Long, Long> callback) {
-        this.progressCallback = callback;
-    }
-
-    /**
-     * Get performance metrics from last upload.
-     *
-     * @return performance metrics
-     */
-    public PerformanceMonitor.PerformanceMetrics getPerformanceMetrics() {
-        return performanceMonitor.getMetrics();
-    }
-
-    /**
-     * Set timeout for server responses.
-     *
-     * @param timeoutMs timeout in milliseconds
-     */
-    public void setResponseTimeout(int timeoutMs) {
-        this.responseTimeoutMs = timeoutMs;
-    }
-
-    /**
-     * Set delay between chunk uploads.
-     *
-     * @param delayMs delay in milliseconds
-     */
-    public void setUploadDelay(int delayMs) {
-        this.uploadDelayMs = delayMs;
-    }
-
-    /**
-     * Handle server response message (called from main message router).
-     *
-     * @param message server response message
-     */
-    public void handleServerResponse(String message) {
-        logger.debug("Received server response during upload: {}", message);
-        // Handle acknowledgments if needed
     }
 
     // Private helper methods
@@ -237,7 +172,7 @@ public class UploadManager {
         long totalBytesTransferred = 0;
 
         while (offset < fileData.length) {
-            int chunkLength = Math.min(chunkManager.getChunkSize(), fileData.length - offset);
+            int chunkLength = Math.min(CHUNK_SIZE, fileData.length - offset);
             byte[] chunk = new byte[chunkLength];
             System.arraycopy(fileData, offset, chunk, 0, chunkLength);
 
@@ -251,7 +186,7 @@ public class UploadManager {
             }
 
             if (uploadDelayMs > 0) {
-                Thread.sleep(uploadDelayMs);
+                TimeUnit.MILLISECONDS.sleep(uploadDelayMs);
             }
 
             offset += chunkLength;
@@ -289,22 +224,16 @@ public class UploadManager {
         }
     }
 
+
     /**
-     * Wait for server response with timeout.
+     * Generate a short stream ID.
      *
-     * @param expectedType expected message type
-     * @param timeoutMs timeout in milliseconds
+     * @return stream ID in format "stream-{short-uuid}"
      */
-    private void waitForResponse(String expectedType, int timeoutMs) {
-        // Implementation for waiting for specific response type
-        // This can be enhanced based on protocol requirements
-        try {
-            String response = client.waitForTextMessage(timeoutMs);
-            if (response != null) {
-                logger.debug("Received response: {}", response);
-            }
-        } catch (Exception e) {
-            logger.warn("Timeout waiting for response: {}", expectedType);
-        }
+    private static String generateStreamId() {
+        String uuid = UUID.randomUUID().toString().substring(0, 8);
+        String streamId = "stream-" + uuid;
+        logger.debug("Generated stream ID: {}", streamId);
+        return streamId;
     }
 }

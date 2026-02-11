@@ -9,18 +9,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class AudioServerApplication {
-    private static final Logger logger = LoggerFactory.getLogger(AudioServerApplication.class);
+public class AudioServer {
+    private static final Logger logger = LoggerFactory.getLogger(AudioServer.class);
     private static final int port = 8080;
-    private static final int BUFFER_SIZE = 64 * 1024;  // 64KB
-    private static final int POOL_SIZE = 100;
 
     private AudioWebSocketServer webSocketServer;
     private StreamManager streamManager;
     private ScheduledExecutorService statisticsScheduler;
 
     void main() {
-        AudioServerApplication app = new AudioServerApplication();
+        AudioServer app = new AudioServer();
         app.start();
     }
 
@@ -28,12 +26,11 @@ public class AudioServerApplication {
         logger.info("Starting Audio Server Application...");
         logger.info("JDK Version: {}", System.getProperty("java.version"));
         streamManager = new StreamManager();
-        logger.info("Initializing MemoryPoolManager singleton with {} buffers of {} bytes", POOL_SIZE, BUFFER_SIZE);
         try {
             webSocketServer = new AudioWebSocketServer(port, streamManager);
             webSocketServer.start();
             startStatisticsTimer();
-            Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
+            Runtime.getRuntime().addShutdownHook(Thread.ofVirtual().unstarted(this::shutdown));
             logger.info("Audio Server Application started successfully on port {}", port);
             logger.info("WebSocket endpoint: ws://localhost:{}", port);
             webSocketServer.serverChannel.closeFuture().sync();

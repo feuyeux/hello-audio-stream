@@ -10,13 +10,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 /**
  * WebSocket client for generic message communication.
  * Handles connection management, message sending/receiving, and connection lifecycle.
  * Thread-safe design with proper connection state management.
- * 
+ * <p>
  * This class wraps the Java-WebSocket library client to provide a unified interface
  * matching the C++ WebSocketClient implementation.
  */
@@ -27,14 +26,9 @@ public class WebSocketClient implements AutoCloseable {
     private final URI serverUri;
     private volatile CountDownLatch connectLatch;
     private final AtomicReference<String> connectionId = new AtomicReference<>();
-    private final BlockingQueue<byte[]> binaryMessageQueue = new LinkedBlockingQueue<>(10);
-    private final BlockingQueue<String> textMessageQueue = new LinkedBlockingQueue<>(10);
+    private final BlockingQueue<byte[]> binaryMessageQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<String> textMessageQueue = new LinkedBlockingQueue<>();
     private volatile boolean connected = false;
-
-    // Message handlers
-    private Consumer<String> onMessageHandler;
-    private Consumer<byte[]> onBinaryMessageHandler;
-    private Consumer<String> onErrorHandler;
 
     public WebSocketClient(URI serverUri) {
         this.serverUri = serverUri;
@@ -57,7 +51,7 @@ public class WebSocketClient implements AutoCloseable {
             @Override
             public void onMessage(String message) {
                 logger.debug("Received text message: {}", message);
-                
+
                 // Handle CONNECTED message
                 if (message.contains("\"type\":\"CONNECTED\"") || message.contains("\"type\":\"connected\"")) {
                     logger.info("Received CONNECTED message from server");
@@ -69,14 +63,12 @@ public class WebSocketClient implements AutoCloseable {
                         logger.info("Connection ID: {}", connectionId.get());
                     }
                 }
-                
+
                 // Queue message for polling
-                textMessageQueue.offer(message);
-                
-                // Call handler if set
-                if (onMessageHandler != null) {
-                    onMessageHandler.accept(message);
+                if (!textMessageQueue.offer(message)) {
+                    logger.warn("Text message queue full, message dropped");
                 }
+
             }
 
             @Override
@@ -84,14 +76,12 @@ public class WebSocketClient implements AutoCloseable {
                 byte[] data = new byte[bytes.remaining()];
                 bytes.get(data);
                 logger.debug("Received binary data: {} bytes", data.length);
-                
+
                 // Queue message for polling
-                binaryMessageQueue.offer(data);
-                
-                // Call handler if set
-                if (onBinaryMessageHandler != null) {
-                    onBinaryMessageHandler.accept(data);
+                if (!binaryMessageQueue.offer(data)) {
+                    logger.warn("Binary message queue full, message dropped");
                 }
+
             }
 
             @Override
@@ -104,30 +94,9 @@ public class WebSocketClient implements AutoCloseable {
             public void onError(Exception ex) {
                 logger.error("WebSocket error", ex);
                 connected = false;
-                
-                // Call error handler if set
-                if (onErrorHandler != null) {
-                    onErrorHandler.accept(ex.getMessage());
-                }
+
             }
         };
-    }
-
-    // Connection management
-
-    /**
-     * Connect to the WebSocket server.
-     *
-     * @return true if connection initiated successfully
-     */
-    public boolean connect() {
-        try {
-            internalClient.connect();
-            return true;
-        } catch (Exception e) {
-            logger.error("Failed to initiate connection", e);
-            return false;
-        }
     }
 
     /**
@@ -152,7 +121,7 @@ public class WebSocketClient implements AutoCloseable {
                 if (attempt < maxRetries) {
                     long delay = (long) Math.pow(2, attempt - 1) * 1000; // Exponential backoff
                     logger.warn("Connection failed, retrying in {} ms", delay);
-                    Thread.sleep(delay);
+                    TimeUnit.MILLISECONDS.sleep(delay);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -236,36 +205,6 @@ public class WebSocketClient implements AutoCloseable {
         logger.debug("Sent binary data: {} bytes", data.length);
     }
 
-    // Message handlers
-
-    /**
-     * Set callback for text messages.
-     *
-     * @param handler callback function to handle text messages
-     */
-    public void setOnMessage(Consumer<String> handler) {
-        this.onMessageHandler = handler;
-    }
-
-    /**
-     * Set callback for binary messages.
-     *
-     * @param handler callback function to handle binary messages
-     */
-    public void setOnBinaryMessage(Consumer<byte[]> handler) {
-        this.onBinaryMessageHandler = handler;
-    }
-
-    /**
-     * Set callback for errors.
-     *
-     * @param handler callback function to handle errors
-     */
-    public void setOnError(Consumer<String> handler) {
-        this.onErrorHandler = handler;
-    }
-
-    // Utility methods for backward compatibility
 
     /**
      * Wait for a binary message with timeout.
@@ -305,34 +244,5 @@ public class WebSocketClient implements AutoCloseable {
     public void clearMessages() {
         binaryMessageQueue.clear();
         textMessageQueue.clear();
-    }
-
-    /**
-     * Reconnect to the server.
-     *
-     * @param timeoutMs maximum time to wait for reconnection in milliseconds
-     * @return true if reconnection successful
-     */
-    public boolean reconnect(long timeoutMs) {
-        try {
-            if (isConnected()) {
-                disconnect();
-            }
-            this.connectLatch = new CountDownLatch(1);
-            clearMessages();
-            return connectAndWait(timeoutMs);
-        } catch (Exception e) {
-            logger.error("Failed to reconnect to WebSocket server", e);
-            return false;
-        }
-    }
-
-    /**
-     * Get the connection ID assigned by the server.
-     *
-     * @return connection ID, or null if not connected
-     */
-    public String getConnectionId() {
-        return connectionId.get();
     }
 }
