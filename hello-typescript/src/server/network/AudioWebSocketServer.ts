@@ -6,7 +6,6 @@
 
 import * as WebSocket from "ws";
 import { StreamManager } from "../memory/StreamManager";
-import { MemoryPoolManager } from "../memory/MemoryPoolManager";
 import { WebSocketMessageHandler } from "../handler/WebSocketMessageHandler";
 import { WebSocketMessage } from "../handler/WebSocketMessage";
 
@@ -16,7 +15,6 @@ export class AudioWebSocketServer {
   private path: string;
   private server: WebSocket.Server | null;
   private streamManager: StreamManager;
-  private memoryPool: MemoryPoolManager;
   private connectionHandlers: Map<WebSocket, WebSocketMessageHandler>;
 
   constructor(
@@ -30,7 +28,6 @@ export class AudioWebSocketServer {
     this.path = path;
     this.server = null;
     this.streamManager = streamManager;
-    this.memoryPool = MemoryPoolManager.getInstance();
     this.connectionHandlers = new Map();
 
     console.log(`AudioWebSocketServer initialized on ${host}:${port}${path}`);

@@ -21,7 +21,7 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^14.0.0",
-    "mmap-io": "^1.1.7",
+    "@fayzanx/mmap-io": "^1.7.0",
     "ws": "^8.19.0"
   },
   "devDependencies": {

@@ -3,7 +3,6 @@
 package server
 
 import server.memory.StreamManager
-import server.memory.MemoryPoolManager
 import server.network.AudioWebSocketServer
 
 /**
@@ -39,14 +38,12 @@ object AudioServerApplication {
 
         // Get singleton instances
         val streamManager = StreamManager.getInstance("cache")
-        val memoryPool = MemoryPoolManager.getInstance()
 
         // Create and start WebSocket server
         val server = AudioWebSocketServer(
             port = port,
             path = path,
-            streamManager = streamManager,
-            memoryPool = memoryPool
+            streamManager = streamManager
         )
 
         // Handle graceful shutdown

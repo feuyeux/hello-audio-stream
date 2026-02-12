@@ -16,7 +16,6 @@ import server.Logger
 import server.handler.WebSocketMessageHandler
 import WebSocketMessage
 import server.memory.StreamManager
-import server.memory.MemoryPoolManager
 import kotlin.time.Duration.Companion.seconds
 import java.util.concurrent.ConcurrentHashMap
 
@@ -26,11 +25,9 @@ import java.util.concurrent.ConcurrentHashMap
 class AudioWebSocketServer(
     private val port: Int = 8080,
     private val path: String = "/audio",
-    streamManager: StreamManager? = null,
-    memoryPool: MemoryPoolManager? = null
+    streamManager: StreamManager? = null
 ) {
     private val streamManager: StreamManager = streamManager ?: StreamManager.getInstance()
-    private val memoryPool: MemoryPoolManager = memoryPool ?: MemoryPoolManager.getInstance()
     private val messageHandler: WebSocketMessageHandler = WebSocketMessageHandler(this.streamManager)
     private val clients = ConcurrentHashMap<DefaultWebSocketSession, Long>()
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
@@ -71,7 +68,7 @@ class AudioWebSocketServer(
                                 }
                                 is Frame.Binary -> {
                                     val data = frame.readBytes()
-                                    handleBinaryMessage(this, clientId, data)
+                                    handleBinaryMessage(clientId, data)
                                 }
                                 is Frame.Close -> {
                                     Logger.info("Client disconnected: $clientId")
@@ -154,38 +151,9 @@ class AudioWebSocketServer(
     }
     
     /**
-     * Simple JSON parser for extracting fields
-     */
-    private fun parseSimpleJson(json: String): Map<String, Any?> {
-        val result = mutableMapOf<String, Any?>()
-        
-        val typeRegex = """"type"\s*:\s*"([^"]+)"""".toRegex()
-        typeRegex.find(json)?.let { match ->
-            result["type"] = match.groupValues[1]
-        }
-        
-        val streamIdRegex = """"streamId"\s*:\s*"([^"]+)"""".toRegex()
-        streamIdRegex.find(json)?.let { match ->
-            result["streamId"] = match.groupValues[1]
-        }
-        
-        val offsetRegex = """"offset"\s*:\s*(\d+)""".toRegex()
-        offsetRegex.find(json)?.let { match ->
-            result["offset"] = match.groupValues[1].toLong()
-        }
-        
-        val lengthRegex = """"length"\s*:\s*(\d+)""".toRegex()
-        lengthRegex.find(json)?.let { match ->
-            result["length"] = match.groupValues[1].toInt()
-        }
-        
-        return result
-    }
-
-    /**
      * Handle binary audio data.
      */
-    private fun handleBinaryMessage(session: DefaultWebSocketSession, clientId: Long, data: ByteArray) {
+    private fun handleBinaryMessage(clientId: Long, data: ByteArray) {
         messageHandler.handleBinaryMessage(clientId, data)
     }
 

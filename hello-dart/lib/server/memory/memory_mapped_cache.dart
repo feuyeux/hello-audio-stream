@@ -81,7 +81,6 @@ class MemoryMappedCache {
   /// Write data to the file (synchronous version).
   int writeSync(int offset, List<int> data) {
     if (!_isOpen || _file == null) {
-      int initialSize = offset + data.length;
       File(path).createSync(recursive: true);
       _file = File(path).openSync(mode: FileMode.write);
       _isOpen = true;

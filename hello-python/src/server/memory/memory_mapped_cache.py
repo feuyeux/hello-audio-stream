@@ -6,12 +6,6 @@ import threading
 from typing import Optional, IO
 from loguru import logger
 
-# Configuration constants - follows unified mmap specification v2.0.0
-DEFAULT_PAGE_SIZE = 64 * 1024 * 1024  # 64MB
-MAX_CACHE_SIZE = 8 * 1024 * 1024 * 1024  # 8GB
-SEGMENT_SIZE = 1 * 1024 * 1024 * 1024  # 1GB per segment
-BATCH_OPERATION_LIMIT = 1000  # Max batch operations
-
 
 class MemoryMappedCache:
     """

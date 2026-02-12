@@ -6,14 +6,8 @@
  */
 
 import fs from "fs";
-import mmap from "mmap-io";
+import mmap from "@fayzanx/mmap-io";
 import * as logger from "../../logger.js";
-
-// Configuration constants - follows unified mmap specification v2.0.0
-const DEFAULT_PAGE_SIZE = 64 * 1024 * 1024; // 64MB
-const MAX_CACHE_SIZE = 8 * 1024 * 1024 * 1024; // 8GB
-const SEGMENT_SIZE = 1 * 1024 * 1024 * 1024; // 1GB per segment
-const BATCH_OPERATION_LIMIT = 1000; // Max batch operations
 
 /**
  * Memory-mapped cache implementation.
@@ -140,10 +134,8 @@ export class MemoryMappedCache {
         data.copy(this.buffer, offset);
         return data.length;
       } else {
-        // Fallback or error state
-        logger.warn("Buffer not mapped, falling back to fs.write");
-        fs.writeSync(this.fileHandle, data, 0, data.length, offset);
-        return data.length;
+        logger.error("Buffer not mapped; native mmap is required");
+        return 0;
       }
     } catch (error) {
       logger.error(`Error writing to file ${this.path}: ${error.message}`);
@@ -179,16 +171,8 @@ export class MemoryMappedCache {
         logger.debug(`Read ${actualLength} bytes from ${this.path} at offset ${offset}`);
         return result;
       } else {
-        const buffer = Buffer.alloc(actualLength);
-        const bytesRead = fs.readSync(
-          this.fileHandle,
-          buffer,
-          0,
-          actualLength,
-          offset,
-        );
-        logger.debug(`Read ${bytesRead} bytes from ${this.path} at offset ${offset}`);
-        return buffer;
+        logger.error("Buffer not mapped; native mmap is required");
+        return Buffer.alloc(0);
       }
     } catch (error) {
       logger.error(`Error reading from file ${this.path}: ${error.message}`);
@@ -243,7 +227,8 @@ export class MemoryMappedCache {
         // mmap.sync(buffer, offset, length, blocking_sync, invalidate_pages)
         mmap.sync(this.buffer, 0, this.size, true, false);
       } else {
-        fs.fsyncSync(this.fileHandle);
+        logger.error("Buffer not mapped; native mmap is required");
+        return false;
       }
       logger.debug(`Flushed file: ${this.path}`);
       return true;

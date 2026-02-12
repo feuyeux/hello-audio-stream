@@ -55,7 +55,7 @@ final class WebSocketClient: NSObject, @unchecked Sendable {
         
         // Wait for and consume CONNECTED message
         do {
-            if let connectedMsg = try await receiveText(timeout: 1.0, expectedType: MessageType.CONNECTED.rawValue) {
+            if try await receiveText(timeout: 1.0, expectedType: MessageType.CONNECTED.rawValue) != nil {
                 Logger.info("Received CONNECTED message from server")
             }
         } catch {

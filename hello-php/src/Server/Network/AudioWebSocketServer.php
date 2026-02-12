@@ -13,7 +13,6 @@ namespace AudioStreamServer\Network;
 use AudioStreamClient\Logger;
 use AudioStreamServer\Handler\WebSocketMessageHandler;
 use AudioStreamServer\Memory\StreamManager;
-use AudioStreamServer\Memory\MemoryPoolManager;
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
 
@@ -27,7 +26,6 @@ class AudioWebSocketServer implements MessageComponentInterface
     private \SplObjectStorage $clients;
     private WebSocketMessageHandler $messageHandler;
     private StreamManager $streamManager;
-    private MemoryPoolManager $memoryPool;
 
     /**
      * Initialize WebSocket server.
@@ -35,13 +33,11 @@ class AudioWebSocketServer implements MessageComponentInterface
      * @param int $port Port number to listen on
      * @param string $path WebSocket endpoint path
      * @param StreamManager $streamManager Stream manager instance
-     * @param MemoryPoolManager $memoryPool Memory pool instance
      */
     public function __construct(
         int $port = 8080,
         string $path = '/audio',
-        ?StreamManager $streamManager = null,
-        ?MemoryPoolManager $memoryPool = null
+        ?StreamManager $streamManager = null
     ) {
         $this->port = $port;
         $this->path = $path;
@@ -49,7 +45,6 @@ class AudioWebSocketServer implements MessageComponentInterface
 
         // Use singleton instances if not provided
         $this->streamManager = $streamManager ?? StreamManager::getInstance('cache');
-        $this->memoryPool = $memoryPool ?? MemoryPoolManager::getInstance(65536, 100);
 
         // Create message handler
         $this->messageHandler = new WebSocketMessageHandler($this->streamManager);
@@ -135,4 +130,3 @@ class AudioWebSocketServer implements MessageComponentInterface
         return $this->path;
     }
 }
-

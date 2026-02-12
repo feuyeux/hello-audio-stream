@@ -25,5 +25,8 @@ if [ ! -d "dist" ]; then
     npm run build
 fi
 
+# Native mmap is mandatory.
+bash "$SCRIPT_DIR/ensure-native-mmap.sh"
+
 # Run client
 node dist/index.js --server "$SERVER_URI" --input "$INPUT_FILE"

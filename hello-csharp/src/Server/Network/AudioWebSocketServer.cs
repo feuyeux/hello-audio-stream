@@ -19,7 +19,6 @@ public class AudioWebSocketServer
     private readonly int _port;
     private readonly string _path;
     private readonly StreamManager _streamManager;
-    private readonly MemoryPoolManager _memoryPool;
     private readonly ConcurrentDictionary<WebSocket, string> _activeStreams;
     private readonly ConcurrentDictionary<WebSocket, CancellationTokenSource> _clientCancellationTokens;
     private HttpListener? _httpListener;
@@ -32,13 +31,11 @@ public class AudioWebSocketServer
     public AudioWebSocketServer(
         int port = 8080,
         string path = "/audio",
-        StreamManager? streamManager = null,
-        MemoryPoolManager? memoryPool = null)
+        StreamManager? streamManager = null)
     {
         _port = port;
         _path = path;
         _streamManager = streamManager ?? StreamManager.GetInstance();
-        _memoryPool = memoryPool ?? MemoryPoolManager.GetInstance();
         _activeStreams = new ConcurrentDictionary<WebSocket, string>();
         _clientCancellationTokens = new ConcurrentDictionary<WebSocket, CancellationTokenSource>();
 
@@ -161,7 +158,7 @@ public class AudioWebSocketServer
                     new ArraySegment<byte>(buffer),
                     clientCts.Token);
 
-                if (result.MessageType == ControlMessageType.Close)
+                if (result.MessageType == WebSocketMessageType.Close)
                 {
                     await webSocket.CloseAsync(
                         WebSocketCloseStatus.NormalClosure,
@@ -170,12 +167,12 @@ public class AudioWebSocketServer
                     break;
                 }
 
-                if (result.MessageType == ControlMessageType.Text)
+                if (result.MessageType == WebSocketMessageType.Text)
                 {
                     var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
                     await HandleTextMessageAsync(webSocket, message);
                 }
-                else if (result.MessageType == ControlMessageType.Binary)
+                else if (result.MessageType == WebSocketMessageType.Binary)
                 {
                     var data = new byte[result.Count];
                     Array.Copy(buffer, 0, data, 0, result.Count);
@@ -397,11 +394,11 @@ public class AudioWebSocketServer
     {
         if (_clientCancellationTokens.TryGetValue(ws, out var cts) && ws.State == WebSocketState.Open)
         {
-            await ws.SendAsync(
-                new ArraySegment<byte>(data),
-                ControlMessageType.Binary,
-                true,
-                cts.Token);
+                await ws.SendAsync(
+                    new ArraySegment<byte>(data),
+                    WebSocketMessageType.Binary,
+                    true,
+                    cts.Token);
         }
     }
 
@@ -413,11 +410,11 @@ public class AudioWebSocketServer
         byte[] bytes = Encoding.UTF8.GetBytes(text);
         if (_clientCancellationTokens.TryGetValue(ws, out var cts) && ws.State == WebSocketState.Open)
         {
-            await ws.SendAsync(
-                new ArraySegment<byte>(bytes),
-                ControlMessageType.Text,
-                true,
-                cts.Token);
+                await ws.SendAsync(
+                    new ArraySegment<byte>(bytes),
+                    WebSocketMessageType.Text,
+                    true,
+                    cts.Token);
         }
     }
 }

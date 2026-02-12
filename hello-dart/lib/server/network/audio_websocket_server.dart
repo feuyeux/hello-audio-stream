@@ -10,17 +10,14 @@ import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../memory/stream_manager.dart';
-import '../memory/memory_pool_manager.dart';
 import '../handler/websocket_message_handler.dart';
 import '../../src/logger.dart';
-import '../../src/types.dart';
+import '../../src/types.dart' as common_types;
 
 /// WebSocket server for handling audio stream uploads and downloads.
 class AudioWebSocketServer {
   final int port;
   final String path;
-  final StreamManager _streamManager;
-  final MemoryPoolManager _memoryPool;
   late WebSocketMessageHandler _messageHandler;
   HttpServer? _server;
   final Map<WebSocketChannel, String> _activeStreams = {};
@@ -30,9 +27,7 @@ class AudioWebSocketServer {
     this.port = 8080,
     this.path = '/audio',
     StreamManager? streamManager,
-    MemoryPoolManager? memoryPool,
-  })  : _streamManager = streamManager ?? StreamManager.getInstance(),
-        _memoryPool = memoryPool ?? MemoryPoolManager.getInstance() {
+  }) {
     _messageHandler = WebSocketMessageHandler(
       streamManager: streamManager,
       onStreamStarted: registerStream,
@@ -48,7 +43,7 @@ class AudioWebSocketServer {
 
       // Send CONNECTED message
       final connectionId = 'conn-${ws.hashCode}';
-      final connectedMsg = ControlMessage.connected(connectionId);
+      final connectedMsg = common_types.ControlMessage.connected(connectionId);
       ws.sink.add(connectedMsg.toJson());
       Logger.info('Sent CONNECTED message to client: $connectionId');
 

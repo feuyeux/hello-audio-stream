@@ -8,7 +8,6 @@ import * as WebSocket from "ws";
 import { StreamManager } from "../memory/StreamManager";
 import {
   WebSocketMessage,
-  IWebSocketMessage,
   MessageType,
   getMessageType,
 } from "./WebSocketMessage";
@@ -44,7 +43,7 @@ export class WebSocketMessageHandler {
             console.log(`Binary message is not JSON, treating as binary data`);
           }
         }
-        this.handleBinaryMessage(ws, message);
+        this.handleBinaryMessage(message);
       } else if (typeof message === "string") {
         // Text message (JSON control message)
         console.log(`Received text message: ${message}`);
@@ -94,7 +93,7 @@ export class WebSocketMessageHandler {
     }
   }
 
-  private handleBinaryMessage(ws: WebSocket, data: Buffer): void {
+  private handleBinaryMessage(data: Buffer): void {
     // Binary data belongs to current stream
     if (!this.currentStreamId) {
       console.error(

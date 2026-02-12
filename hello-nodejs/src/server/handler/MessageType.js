@@ -2,7 +2,7 @@
  * WebSocket message types enum.
  * All type values are uppercase as per protocol specification.
  */
-class MessageType {
+export class MessageType {
   static START = "START";
   static STARTED = "STARTED";
   static STOP = "STOP";
@@ -52,5 +52,3 @@ class MessageType {
     ];
   }
 }
-
-module.exports = MessageType;

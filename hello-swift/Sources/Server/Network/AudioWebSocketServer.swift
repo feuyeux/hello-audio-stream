@@ -2,6 +2,10 @@
 import Foundation
 #if os(Windows)
 import WinSDK
+#elseif canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
 #endif
 import AudioStreamCommon
 
@@ -26,7 +30,6 @@ class AudioWebSocketServer: @unchecked Sendable {
     private let path: String
     private let messageHandler: WebSocketMessageHandler
     private let streamManager: StreamManager
-    private let memoryPool: MemoryPoolManager
     
     // WinSDK socket type alias
     typealias SOCKET = UInt64 
@@ -36,11 +39,10 @@ class AudioWebSocketServer: @unchecked Sendable {
     // Winsock initialization state
     nonisolated(unsafe) private static var isWinsockInitialized = false
     
-    init(port: Int = 8080, path: String = "/audio", streamManager: StreamManager, memoryPool: MemoryPoolManager) {
+    init(port: Int = 8080, path: String = "/audio", streamManager: StreamManager) {
         self.port = port
         self.path = path
         self.streamManager = streamManager
-        self.memoryPool = memoryPool
         self.messageHandler = WebSocketMessageHandler(streamManager: streamManager)
         
         if !AudioWebSocketServer.isWinsockInitialized {
@@ -469,18 +471,430 @@ class WebSocketConnection: @unchecked Sendable {
 
 #else
 
-// NON-WINDOWS Stub Implementation
-class AudioWebSocketServer {
-    init(port: Int = 8080, path: String = "/audio", streamManager: StreamManager, memoryPool: MemoryPoolManager) {
-        Logger.warn("AudioWebSocketServer is not implemented for non-Windows platforms in this version.")
+final class AtomicCounter: @unchecked Sendable {
+    private var value: UInt32 = 0
+    private let lock = NSLock()
+
+    func incrementAndGet() -> UInt32 {
+        lock.lock()
+        defer { lock.unlock() }
+        value += 1
+        return value
     }
-    
+}
+
+class AudioWebSocketServer: @unchecked Sendable {
+    private let port: Int
+    private let path: String
+    private let messageHandler: WebSocketMessageHandler
+    private let streamManager: StreamManager
+
+    private var listenSocket: Int32 = -1
+    private var isRunning = false
+
+    init(port: Int = 8080, path: String = "/audio", streamManager: StreamManager) {
+        self.port = port
+        self.path = path
+        self.streamManager = streamManager
+        self.messageHandler = WebSocketMessageHandler(streamManager: streamManager)
+    }
+
+    deinit {
+        stop()
+    }
+
     func start() {
-        Logger.error("Cannot start AudioWebSocketServer: WinSDK is required.")
-        fatalError("AudioWebSocketServer not supported on this platform")
+        #if canImport(Glibc)
+        let socketType = Int32(SOCK_STREAM.rawValue)
+        #else
+        let socketType = SOCK_STREAM
+        #endif
+
+        listenSocket = socket(AF_INET, socketType, 0)
+        guard listenSocket >= 0 else {
+            Logger.error("Failed to create socket")
+            return
+        }
+
+        var optValue: Int32 = 1
+        withUnsafePointer(to: &optValue) { ptr in
+            ptr.withMemoryRebound(to: CChar.self, capacity: MemoryLayout<Int32>.size) { cptr in
+                _ = setsockopt(
+                    listenSocket,
+                    SOL_SOCKET,
+                    SO_REUSEADDR,
+                    cptr,
+                    socklen_t(MemoryLayout<Int32>.size)
+                )
+            }
+        }
+
+        var addr = sockaddr_in()
+        #if canImport(Darwin)
+        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        #endif
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = in_port_t(UInt16(port).bigEndian)
+        addr.sin_addr = in_addr(s_addr: in_addr_t(0))
+
+        let bindResult = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
+                bind(listenSocket, sockaddrPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+
+        guard bindResult == 0 else {
+            Logger.error("Failed to bind socket on port \(port)")
+            closeSocket(listenSocket)
+            listenSocket = -1
+            return
+        }
+
+        guard listen(listenSocket, SOMAXCONN) == 0 else {
+            Logger.error("Failed to listen on socket")
+            closeSocket(listenSocket)
+            listenSocket = -1
+            return
+        }
+
+        isRunning = true
+        Logger.info("POSIX WebSocket server started on ws://0.0.0.0:\(port)\(path)")
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.acceptLoop()
+        }
     }
-    
-    func stop() {}
+
+    func stop() {
+        isRunning = false
+        if listenSocket >= 0 {
+            closeSocket(listenSocket)
+            listenSocket = -1
+        }
+    }
+
+    private func acceptLoop() {
+        while isRunning {
+            var clientAddr = sockaddr()
+            var clientLen = socklen_t(MemoryLayout<sockaddr>.size)
+
+            let clientSocket = withUnsafeMutablePointer(to: &clientAddr) { ptr in
+                accept(listenSocket, ptr, &clientLen)
+            }
+
+            if clientSocket < 0 {
+                if isRunning {
+                    Logger.warn("accept() failed")
+                }
+                continue
+            }
+
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                guard let self = self else { return }
+                let connection = PosixWebSocketConnection(
+                    socket: clientSocket,
+                    messageHandler: self.messageHandler,
+                    path: self.path
+                )
+                connection.start()
+            }
+        }
+    }
+
+    private func closeSocket(_ fd: Int32) {
+        #if canImport(Darwin)
+        _ = Darwin.shutdown(fd, SHUT_RDWR)
+        _ = Darwin.close(fd)
+        #else
+        _ = Glibc.shutdown(fd, Int32(SHUT_RDWR))
+        _ = Glibc.close(fd)
+        #endif
+    }
+}
+
+final class PosixWebSocketConnection: @unchecked Sendable {
+    private static let connectionCounter = AtomicCounter()
+
+    private let socket: Int32
+    private let messageHandler: WebSocketMessageHandler
+    private let path: String
+
+    private var isConnected = false
+    private var activeStreamId: String?
+    private var pendingData: [UInt8] = []
+
+    init(socket: Int32, messageHandler: WebSocketMessageHandler, path: String) {
+        self.socket = socket
+        self.messageHandler = messageHandler
+        self.path = path
+    }
+
+    func start() {
+        defer {
+            closeSocket(socket)
+            Logger.info("Client connection closed")
+        }
+
+        guard performHandshake() else {
+            Logger.error("Handshake failed")
+            return
+        }
+
+        isConnected = true
+        Logger.info("WebSocket handshake successful")
+        sendConnectedMessage()
+
+        var buffer = [UInt8](repeating: 0, count: 65536)
+        while isConnected {
+            let bytesRead = recvBytes(into: &buffer)
+            if bytesRead == 0 {
+                break
+            }
+            if bytesRead < 0 {
+                // Interrupted syscalls can be retried.
+                #if canImport(Darwin)
+                if errno == EINTR { continue }
+                #else
+                if errno == EINTR { continue }
+                #endif
+                break
+            }
+
+            processData(data: Data(buffer.prefix(bytesRead)))
+        }
+    }
+
+    private func recvBytes(into buffer: inout [UInt8]) -> Int {
+        return buffer.withUnsafeMutableBytes { ptr in
+            guard let base = ptr.baseAddress else { return -1 }
+            #if canImport(Darwin)
+            let read = Darwin.recv(socket, base, ptr.count, 0)
+            #else
+            let read = Glibc.recv(socket, base, ptr.count, 0)
+            #endif
+            return Int(read)
+        }
+    }
+
+    private func performHandshake() -> Bool {
+        var buffer = [UInt8](repeating: 0, count: 8192)
+        let bytesRead = recvBytes(into: &buffer)
+        guard bytesRead > 0 else { return false }
+
+        guard let request = String(bytes: buffer.prefix(bytesRead), encoding: .utf8) else {
+            return false
+        }
+
+        let lines = request.components(separatedBy: "\r\n")
+        guard let requestLine = lines.first else { return false }
+        let requestParts = requestLine.split(separator: " ")
+        guard requestParts.count >= 2 else { return false }
+        let requestPath = String(requestParts[1])
+        let pathMatched = requestPath == path || requestPath.hasPrefix("\(path)?")
+        guard pathMatched else {
+            Logger.warn("Rejected request with unmatched path")
+            return false
+        }
+
+        guard let keyLine = lines.first(where: {
+            $0.lowercased().hasPrefix("sec-websocket-key:")
+        }) else {
+            return false
+        }
+        let key = keyLine
+            .split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+            .dropFirst()
+            .first?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !key.isEmpty else { return false }
+
+        let magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+        guard let data = (key + magic).data(using: .utf8) else { return false }
+        let acceptKey = SHA1.hash(data: data).base64EncodedString()
+
+        let response = "HTTP/1.1 101 Switching Protocols\r\n"
+            + "Upgrade: websocket\r\n"
+            + "Connection: Upgrade\r\n"
+            + "Sec-WebSocket-Accept: \(acceptKey)\r\n"
+            + "\r\n"
+        return sendAll(Data(response.utf8))
+    }
+
+    private func processData(data: Data) {
+        pendingData.append(contentsOf: data)
+
+        while true {
+            guard pendingData.count >= 2 else { return }
+
+            let byte1 = pendingData[0]
+            let byte2 = pendingData[1]
+
+            let opcode = byte1 & 0x0F
+            let masked = (byte2 & 0x80) != 0
+            var payloadLen = UInt64(byte2 & 0x7F)
+            var headerSize = 2
+
+            if payloadLen == 126 {
+                guard pendingData.count >= 4 else { return }
+                payloadLen = (UInt64(pendingData[2]) << 8) | UInt64(pendingData[3])
+                headerSize += 2
+            } else if payloadLen == 127 {
+                guard pendingData.count >= 10 else { return }
+                payloadLen = 0
+                for i in 0..<8 {
+                    payloadLen = (payloadLen << 8) | UInt64(pendingData[2 + i])
+                }
+                headerSize += 8
+            }
+
+            var maskingKey = [UInt8](repeating: 0, count: 4)
+            if masked {
+                guard pendingData.count >= headerSize + 4 else { return }
+                for i in 0..<4 {
+                    maskingKey[i] = pendingData[headerSize + i]
+                }
+                headerSize += 4
+            }
+
+            guard UInt64(pendingData.count) >= UInt64(headerSize) + payloadLen else { return }
+
+            let payloadStart = headerSize
+            let payloadEnd = payloadStart + Int(payloadLen)
+            var payload = [UInt8](pendingData[payloadStart..<payloadEnd])
+
+            if masked {
+                for i in 0..<payload.count {
+                    payload[i] ^= maskingKey[i % 4]
+                }
+            }
+
+            switch opcode {
+            case 1:
+                if let text = String(bytes: payload, encoding: .utf8) {
+                    processTextMessage(text)
+                }
+            case 2:
+                processBinaryMessage(Data(payload))
+            case 8:
+                isConnected = false
+            case 9:
+                sendPong(data: payload)
+            default:
+                break
+            }
+
+            pendingData.removeFirst(payloadEnd)
+        }
+    }
+
+    private func sendConnectedMessage() {
+        let connectionId = "conn-\(Self.connectionCounter.incrementAndGet())"
+        let connected = AudioStreamCommon.WebSocketMessage.connected(
+            streamId: connectionId,
+            message: "Connection established"
+        )
+        sendJSON(connected)
+        Logger.info("Sent CONNECTED message to client: \(connectionId)")
+    }
+
+    private func processTextMessage(_ text: String) {
+        messageHandler.handleTextMessage(
+            message: text,
+            sendResponse: { [weak self] msg in
+                self?.sendJSON(msg)
+            },
+            sendBinary: { [weak self] data in
+                self?.sendBinary(data)
+            }
+        )
+    }
+
+    private func processBinaryMessage(_ data: Data) {
+        guard let streamId = activeStreamId else {
+            Logger.warn("Received binary data but no active stream")
+            return
+        }
+        messageHandler.handleBinaryMessage(streamId: streamId, data: data)
+    }
+
+    private func sendJSON<T: Encodable>(_ data: T) {
+        if let msg = data as? WebSocketMessage {
+            if msg.type == AudioStreamCommon.MessageType.STARTED.rawValue {
+                activeStreamId = msg.streamId
+            } else if msg.type == AudioStreamCommon.MessageType.STOPPED.rawValue {
+                activeStreamId = nil
+            }
+        }
+
+        guard let jsonData = try? JSONEncoder().encode(data) else { return }
+        sendFrame(opcode: 1, data: jsonData)
+    }
+
+    private func sendBinary(_ data: Data) {
+        sendFrame(opcode: 2, data: data)
+    }
+
+    private func sendPong(data: [UInt8]) {
+        sendFrame(opcode: 10, data: Data(data))
+    }
+
+    private func sendFrame(opcode: UInt8, data: Data) {
+        var header = [UInt8]()
+        header.append(0x80 | (opcode & 0x0F))
+
+        let length = data.count
+        if length <= 125 {
+            header.append(UInt8(length))
+        } else if length <= 65535 {
+            header.append(126)
+            header.append(UInt8((length >> 8) & 0xFF))
+            header.append(UInt8(length & 0xFF))
+        } else {
+            header.append(127)
+            header.append(UInt8((length >> 56) & 0xFF))
+            header.append(UInt8((length >> 48) & 0xFF))
+            header.append(UInt8((length >> 40) & 0xFF))
+            header.append(UInt8((length >> 32) & 0xFF))
+            header.append(UInt8((length >> 24) & 0xFF))
+            header.append(UInt8((length >> 16) & 0xFF))
+            header.append(UInt8((length >> 8) & 0xFF))
+            header.append(UInt8(length & 0xFF))
+        }
+
+        _ = sendAll(Data(header))
+        _ = sendAll(data)
+    }
+
+    private func sendAll(_ data: Data) -> Bool {
+        var sentTotal = 0
+        return data.withUnsafeBytes { ptr in
+            guard let base = ptr.baseAddress else { return false }
+            while sentTotal < ptr.count {
+                let chunkPtr = base.advanced(by: sentTotal)
+                let remaining = ptr.count - sentTotal
+                #if canImport(Darwin)
+                let sent = Darwin.send(socket, chunkPtr, remaining, 0)
+                #else
+                let sent = Glibc.send(socket, chunkPtr, remaining, 0)
+                #endif
+                if sent <= 0 {
+                    return false
+                }
+                sentTotal += sent
+            }
+            return true
+        }
+    }
+
+    private func closeSocket(_ fd: Int32) {
+        #if canImport(Darwin)
+        _ = Darwin.shutdown(fd, SHUT_RDWR)
+        _ = Darwin.close(fd)
+        #else
+        _ = Glibc.shutdown(fd, Int32(SHUT_RDWR))
+        _ = Glibc.close(fd)
+        #endif
+    }
 }
 
 #endif

@@ -7,8 +7,8 @@ import json
 from websockets.asyncio.server import ServerConnection
 from loguru import logger
 
-from audio_server.memory.stream_manager import StreamManager
-from audio_server.handler.websocket_message import WebSocketMessage, MessageType
+from ..memory.stream_manager import StreamManager
+from .websocket_message import WebSocketMessage, MessageType
 
 
 class WebSocketMessageHandler:

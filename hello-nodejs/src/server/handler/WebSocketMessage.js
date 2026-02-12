@@ -3,9 +3,9 @@
  * Used for all control messages between client and server.
  */
 
-const MessageType = require("./MessageType");
+import { MessageType } from "./MessageType.js";
 
-class WebSocketMessage {
+export class WebSocketMessage {
   /**
    * Create a WebSocketMessage.
    *
@@ -85,10 +85,10 @@ class WebSocketMessage {
     const data = JSON.parse(json);
     return new WebSocketMessage(
       data.type,
-      data.streamId || null,
-      data.offset || null,
-      data.length || null,
-      data.message || null
+      data.streamId ?? null,
+      data.offset ?? null,
+      data.length ?? null,
+      data.message ?? null
     );
   }
 
@@ -127,5 +127,3 @@ class WebSocketMessage {
     return `WebSocketMessage{type='${this.type}', streamId='${this.streamId}', offset=${this.offset}, length=${this.length}, message='${this.message}'}`;
   }
 }
-
-module.exports = WebSocketMessage;

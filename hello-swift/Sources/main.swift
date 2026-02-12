@@ -1,3 +1,3 @@
 import Foundation
 
-AudioStreamClient.main()
+AudioClientApplication.main()

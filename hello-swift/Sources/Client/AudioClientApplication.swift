@@ -32,7 +32,7 @@ struct AudioClientApplication: ParsableCommand {
         Logger.setVerbose(verbose)
         
         // Validate input file
-        guard FileManager.default.fileExists(atPath: input) else {
+        guard Foundation.FileManager.default.fileExists(atPath: input) else {
             Logger.error("Input file does not exist: \(input)")
             throw ExitCode.failure
         }
@@ -86,11 +86,11 @@ struct AudioClientApplication: ParsableCommand {
         
         // Initialize performance monitor
         let performance = PerformanceMonitor()
-        let fileSize = try FileManager.getFileSize(path: config.inputPath)
+        let fileSize = try AudioFileManager.getFileSize(path: config.inputPath)
         performance.setFileSize(fileSize)
         
         // Connect to WebSocket server
-        let ws = try WebSocketClient(uri: config.serverUri)
+        let ws = WebSocketClient(uri: config.serverUri)
         try await ws.connect()
         
         defer {

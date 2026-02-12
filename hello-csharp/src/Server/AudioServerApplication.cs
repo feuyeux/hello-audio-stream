@@ -37,10 +37,9 @@ public class AudioServerApplication
 
         // Get singleton instances
         var streamManager = StreamManager.GetInstance("cache");
-        var memoryPool = MemoryPoolManager.GetInstance();
 
         // Create and start WebSocket server
-        var server = new AudioWebSocketServer(port, path, streamManager, memoryPool);
+        var server = new AudioWebSocketServer(port, path, streamManager);
 
         // Handle graceful shutdown
         Console.CancelKeyPress += (sender, e) =>

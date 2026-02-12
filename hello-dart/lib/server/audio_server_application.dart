@@ -3,7 +3,6 @@
 // Matches Java AudioServerApplication functionality.
 
 import 'memory/stream_manager.dart';
-import 'memory/memory_pool_manager.dart';
 import 'network/audio_websocket_server.dart';
 import '../src/logger.dart';
 
@@ -29,14 +28,12 @@ class AudioServerApplication {
 
     // Get singleton instances
     var streamManager = StreamManager.getInstance('cache');
-    var memoryPool = MemoryPoolManager.getInstance();
 
     // Create and start WebSocket server
     var server = AudioWebSocketServer(
       port: port,
       path: path,
       streamManager: streamManager,
-      memoryPool: memoryPool,
     );
 
     // Handle graceful shutdown

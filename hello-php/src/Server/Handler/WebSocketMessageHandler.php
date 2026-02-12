@@ -18,13 +18,13 @@ use Ratchet\ConnectionInterface;
 /**
  * Message handler for WebSocket audio streaming protocol.
  */
-class ControlMessageHandler
+class WebSocketMessageHandler
 {
     private StreamManager $streamManager;
     private \WeakMap $activeStreams; // Maps client to active streamId
 
     /**
-     * Create a new ControlMessageHandler.
+     * Create a new WebSocketMessageHandler.
      *
      * @param StreamManager $streamManager Stream manager instance
      */
@@ -258,4 +258,3 @@ class ControlMessageHandler
         Logger::error("Sent error to client: {$message}");
     }
 }
-

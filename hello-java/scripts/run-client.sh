@@ -5,16 +5,15 @@
 set -e
 
 # Set JAVA_HOME based on OS
-if [[ -z "$JAVA_HOME" ]]; then
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        export JAVA_HOME="/opt/homebrew/opt/java/libexec/openjdk.jdk/Contents/Home"
-    elif [[ "$OSTYPE" == "linux"* ]]; then
-        JAVA_BIN=$(readlink -f "$(which java)" 2>/dev/null)
-        if [[ -n "$JAVA_BIN" ]]; then
-            export JAVA_HOME="${JAVA_BIN%/bin/java}"
-        fi
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    export JAVA_HOME="/Library/Java/JavaVirtualMachines/jdk-25.jdk/Contents/Home"
+elif [[ -z "$JAVA_HOME" && "$OSTYPE" == "linux"* ]]; then
+    JAVA_BIN=$(readlink -f "$(which java)" 2>/dev/null)
+    if [[ -n "$JAVA_BIN" ]]; then
+        export JAVA_HOME="${JAVA_BIN%/bin/java}"
     fi
 fi
+export PATH="$JAVA_HOME/bin:$PATH"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -37,4 +36,4 @@ fi
 echo "Server: $SERVER_URI"
 echo "Input: $INPUT_FILE"
 
-java --enable-preview -jar "$JAR_FILE" --server "$SERVER_URI" --input "$INPUT_FILE"
+"$JAVA_HOME/bin/java" --enable-preview -jar "$JAR_FILE" --server "$SERVER_URI" --input "$INPUT_FILE"

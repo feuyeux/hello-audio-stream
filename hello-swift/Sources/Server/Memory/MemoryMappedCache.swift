@@ -246,20 +246,189 @@ class MemoryMappedCache: @unchecked Sendable {
 
 #else
 
-// NON-WINDOWS Stub
-class MemoryMappedCache {
-    init(path: String) {}
-    func create(filePath: String, initialSize: Int64 = 0) -> Bool { return false }
-    func open(filePath: String) -> Bool { return false }
-    func close() {}
-    func write(offset: Int64, data: Data) -> Int { return 0 }
-    func read(offset: Int64, length: Int) -> Data { return Data() }
-    func getSize() -> Int64 { return 0 }
-    func getPath() -> String { return "" }
-    func isOpen() -> Bool { return false }
-    func resize(newSize: Int64) -> Bool { return false }
-    func flush() -> Bool { return false }
-    func finalize(finalSize: Int64) -> Bool { return false }
+// NON-WINDOWS file-backed implementation
+class MemoryMappedCache: @unchecked Sendable {
+    let path: String
+    private var fileHandle: FileHandle?
+    private var size: Int64 = 0
+    private var _isOpen = false
+    private let rwLock = NSLock()
+
+    init(path: String) {
+        self.path = path
+    }
+
+    deinit {
+        close()
+    }
+
+    func create(filePath: String, initialSize: Int64 = 0) -> Bool {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+
+        if FileManager.default.fileExists(atPath: filePath) {
+            try? FileManager.default.removeItem(atPath: filePath)
+        }
+
+        guard FileManager.default.createFile(atPath: filePath, contents: nil, attributes: nil) else {
+            Logger.error("Failed to create file: \(filePath)")
+            return false
+        }
+
+        guard let handle = FileHandle(forUpdatingAtPath: filePath) else {
+            Logger.error("Failed to open file handle for: \(filePath)")
+            return false
+        }
+
+        self.fileHandle = handle
+        self._isOpen = true
+
+        if initialSize > 0 && !resizeInternal(newSize: initialSize) {
+            return false
+        }
+
+        self.size = initialSize
+        Logger.info("Created file: \(filePath) with size: \(initialSize)")
+        return true
+    }
+
+    func open(filePath: String) -> Bool {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+
+        guard FileManager.default.fileExists(atPath: filePath) else {
+            Logger.error("File does not exist: \(filePath)")
+            return false
+        }
+
+        guard let handle = FileHandle(forUpdatingAtPath: filePath) else {
+            Logger.error("Failed to open file handle for: \(filePath)")
+            return false
+        }
+
+        self.fileHandle = handle
+        self.size = Int64(handle.seekToEndOfFile())
+        self._isOpen = true
+        Logger.info("Opened file: \(filePath) with size: \(self.size)")
+        return true
+    }
+
+    func close() {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+
+        if _isOpen {
+            try? fileHandle?.close()
+            fileHandle = nil
+            _isOpen = false
+        }
+    }
+
+    func write(offset: Int64, data: Data) -> Int {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+
+        if !_isOpen || fileHandle == nil {
+            if !open(filePath: path) {
+                if !create(filePath: path, initialSize: offset + Int64(data.count)) {
+                    return 0
+                }
+            }
+        }
+
+        guard let handle = fileHandle else { return 0 }
+        let requiredSize = offset + Int64(data.count)
+
+        do {
+            try handle.seek(toOffset: UInt64(offset))
+            try handle.write(contentsOf: data)
+            if requiredSize > size {
+                size = requiredSize
+            }
+            return data.count
+        } catch {
+            Logger.error("Error writing to file: \(error)")
+            return 0
+        }
+    }
+
+    func read(offset: Int64, length: Int) -> Data {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+
+        if !_isOpen || fileHandle == nil {
+            if !open(filePath: path) {
+                return Data()
+            }
+        }
+
+        guard let handle = fileHandle else { return Data() }
+        if offset >= size { return Data() }
+
+        do {
+            try handle.seek(toOffset: UInt64(offset))
+            return try handle.read(upToCount: length) ?? Data()
+        } catch {
+            Logger.error("Error reading from file: \(error)")
+            return Data()
+        }
+    }
+
+    func getSize() -> Int64 {
+        return size
+    }
+
+    func getPath() -> String {
+        return path
+    }
+
+    func isOpen() -> Bool {
+        return _isOpen
+    }
+
+    func resize(newSize: Int64) -> Bool {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+        return resizeInternal(newSize: newSize)
+    }
+
+    private func resizeInternal(newSize: Int64) -> Bool {
+        guard let handle = fileHandle else { return false }
+        do {
+            try handle.truncate(atOffset: UInt64(newSize))
+            self.size = newSize
+            Logger.info("Resized file \(path) to \(newSize) bytes")
+            return true
+        } catch {
+            Logger.error("Error resizing file: \(error)")
+            return false
+        }
+    }
+
+    func flush() -> Bool {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+
+        guard let handle = fileHandle else { return false }
+        do {
+            try handle.synchronize()
+            return true
+        } catch {
+            Logger.error("Error flushing file: \(error)")
+            return false
+        }
+    }
+
+    func finalize(finalSize: Int64) -> Bool {
+        rwLock.lock()
+        defer { rwLock.unlock() }
+
+        guard _isOpen else {
+            Logger.error("File not open for finalization: \(path)")
+            return false
+        }
+        return resizeInternal(newSize: finalSize)
+    }
 }
 
 #endif

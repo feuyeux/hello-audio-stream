@@ -20,5 +20,8 @@ if [ ! -d "node_modules" ]; then
     bash "$SCRIPT_DIR/build-client.sh"
 fi
 
+# Native mmap is mandatory.
+bash "$SCRIPT_DIR/ensure-native-mmap.sh"
+
 # Run client
 node src/index.js --server "$SERVER_URI" --input "$INPUT_FILE"

@@ -7,7 +7,7 @@ set -e
 # Set JAVA_HOME based on OS
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
-    export JAVA_HOME="/opt/homebrew/opt/java/libexec/openjdk.jdk/Contents/Home"
+    export JAVA_HOME="/Library/Java/JavaVirtualMachines/jdk-25.jdk/Contents/Home"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     # Ubuntu/Linux
     export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64

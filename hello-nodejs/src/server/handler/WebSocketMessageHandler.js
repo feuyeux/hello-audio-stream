@@ -6,10 +6,10 @@
  * - Binary frames: raw audio data
  */
 
-const MessageType = require("./MessageType");
-const WebSocketMessage = require("./WebSocketMessage");
+import { MessageType } from "./MessageType.js";
+import { WebSocketMessage } from "./WebSocketMessage.js";
 
-class WebSocketMessageHandler {
+export class WebSocketMessageHandler {
   /**
    * Create a WebSocketMessageHandler.
    *
@@ -68,6 +68,17 @@ class WebSocketMessageHandler {
     try {
       // Check if message is binary (audio data)
       if (Buffer.isBuffer(message)) {
+        // ws may deliver text as Buffer in some runtimes; try JSON first.
+        const textCandidate = message.toString("utf8");
+        if (textCandidate.length > 0 && textCandidate.trim().startsWith("{")) {
+          try {
+            JSON.parse(textCandidate);
+            await this.handleTextMessage(ws, textCandidate);
+            return;
+          } catch {
+            // Not JSON control text, continue as binary payload.
+          }
+        }
         await this.handleBinaryMessage(ws, message);
       } else {
         // Text message (JSON control message)
@@ -260,6 +271,13 @@ class WebSocketMessageHandler {
       console.error(`Error sending error response to ${ws.connectionId}:`, error);
     }
   }
-}
 
-module.exports = WebSocketMessageHandler;
+  /**
+   * Cleanup client-specific state on disconnect.
+   *
+   * @param {WebSocket} ws - WebSocket connection
+   */
+  cleanupClient(ws) {
+    ws.streamId = null;
+  }
+}

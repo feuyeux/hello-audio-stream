@@ -7,13 +7,11 @@
 export class MemoryPoolManager {
   private static instance: MemoryPoolManager | null = null;
   private bufferSize: number;
-  private poolSize: number;
   private availableBuffers: Buffer[];
   private totalBuffers: number;
 
   private constructor(bufferSize: number = 65536, poolSize: number = 100) {
     this.bufferSize = bufferSize;
-    this.poolSize = poolSize;
     this.availableBuffers = [];
     this.totalBuffers = 0;
 

@@ -6,13 +6,7 @@
  */
 
 import * as fs from "fs";
-import mmap from "mmap-io";
-
-// Configuration constants - follows unified mmap implementation specification v2.0.0
-const DEFAULT_PAGE_SIZE = 64 * 1024 * 1024; // 64MB
-const MAX_CACHE_SIZE = 8 * 1024 * 1024 * 1024; // 8GB
-const SEGMENT_SIZE = 1 * 1024 * 1024 * 1024; // 1GB per segment
-const BATCH_OPERATION_LIMIT = 1000; // Max batch operations
+import mmap from "@fayzanx/mmap-io";
 
 export class MemoryMappedCache {
   private path: string;
@@ -117,9 +111,8 @@ export class MemoryMappedCache {
         data.copy(this.buffer, offset);
         return data.length;
       } else {
-        // Fallback if buffer not mapped (should not happen if logic correct)
-        fs.writeSync(this.fd!, data, 0, data.length, offset);
-        return data.length;
+        console.error("Buffer not mapped; native mmap is required");
+        return 0;
       }
     } catch (err: any) {
       console.error(`Error writing to file ${this.path}: ${err.message}`);
@@ -148,10 +141,8 @@ export class MemoryMappedCache {
         console.log(`Read ${actualLength} bytes from ${this.path} at offset ${offset}`);
         return result;
       } else {
-        const buffer = Buffer.alloc(actualLength);
-        const bytesRead = fs.readSync(this.fd!, buffer, 0, actualLength, offset);
-        console.log(`Read ${bytesRead} bytes from ${this.path} at offset ${offset}`);
-        return buffer;
+        console.error("Buffer not mapped; native mmap is required");
+        return Buffer.alloc(0);
       }
     } catch (err: any) {
       console.error(`Error reading from file ${this.path}: ${err.message}`);
@@ -195,7 +186,8 @@ export class MemoryMappedCache {
         // mmap-io sync: mmap.sync(buffer, offset, length, blocking_sync, invalidate_pages)
         mmap.sync(this.buffer, 0, this.size, true);
       } else {
-        fs.fsyncSync(this.fd);
+        console.error("Buffer not mapped; native mmap is required");
+        return false;
       }
 
       console.log(`Flushed file: ${this.path}`);

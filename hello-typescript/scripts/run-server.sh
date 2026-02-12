@@ -30,5 +30,8 @@ if [ ! -d "dist" ]; then
     npm run build
 fi
 
+# Native mmap is mandatory.
+bash "$SCRIPT_DIR/ensure-native-mmap.sh"
+
 # Run server
 node dist/server/main.js "$PORT" "$PATH_ENDPOINT"

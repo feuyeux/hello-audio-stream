@@ -16,7 +16,7 @@ class ErrorHandler {
     
     /// Validate file existence
     static func validateFileExists(path: String) throws {
-        guard FileManager.default.fileExists(atPath: path) else {
+        guard Foundation.FileManager.default.fileExists(atPath: path) else {
             throw createError(domain: "ErrorHandler", code: 1, 
                             message: "File does not exist: \(path)")
         }

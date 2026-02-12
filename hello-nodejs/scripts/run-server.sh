@@ -25,5 +25,8 @@ if [ ! -d "cache" ]; then
     mkdir -p cache
 fi
 
+# Native mmap is mandatory.
+bash "$SCRIPT_DIR/ensure-native-mmap.sh"
+
 # Run server
 node src/server/main.js "$PORT" "$PATH_ENDPOINT"

@@ -5,7 +5,6 @@
 
 import { WebSocketServer } from "ws";
 import { StreamManager } from "../memory/StreamManager.js";
-import { MemoryPoolManager } from "../memory/MemoryPoolManager.js";
 import { WebSocketMessageHandler } from "../handler/WebSocketMessageHandler.js";
 
 /**
@@ -23,7 +22,6 @@ export class AudioWebSocketServer {
     this.path = path;
     this.clients = new Set();
     this.streamManager = StreamManager.getInstance();
-    this.memoryPool = MemoryPoolManager.getInstance();
     this.messageHandler = new WebSocketMessageHandler(this.streamManager);
     this.wss = null;
 
@@ -36,6 +34,7 @@ export class AudioWebSocketServer {
   start() {
     this.wss = new WebSocketServer({
       port: this.port,
+      path: this.path,
       maxPayload: 100 * 1024 * 1024,
     });
 
@@ -71,6 +70,8 @@ export class AudioWebSocketServer {
 
     // Send CONNECTED message
     const connectionId = `conn-${Date.now()}`;
+    ws.connectionId = connectionId;
+    ws.streamId = null;
     const connectedMsg = JSON.stringify({
       type: "CONNECTED",
       streamId: connectionId,

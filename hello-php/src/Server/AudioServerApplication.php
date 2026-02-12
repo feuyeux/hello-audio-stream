@@ -12,7 +12,6 @@ namespace AudioStreamServer;
 
 use AudioStreamServer\Network\AudioWebSocketServer;
 use AudioStreamServer\Memory\StreamManager;
-use AudioStreamServer\Memory\MemoryPoolManager;
 
 /**
  * Audio server application entry point.
@@ -23,7 +22,6 @@ class AudioServerApplication
     private string $path;
     private AudioWebSocketServer $server;
     private StreamManager $streamManager;
-    private MemoryPoolManager $memoryPool;
 
     /**
      * Create a new AudioServerApplication.
@@ -39,10 +37,9 @@ class AudioServerApplication
         
         // Get singleton instances
         $this->streamManager = StreamManager::getInstance($cacheDir);
-        $this->memoryPool = MemoryPoolManager::getInstance(65536, 100);
 
         // Create WebSocket server
-        $this->server = new AudioWebSocketServer($port, $path, $this->streamManager, $this->memoryPool);
+        $this->server = new AudioWebSocketServer($port, $path, $this->streamManager);
     }
 
     /**

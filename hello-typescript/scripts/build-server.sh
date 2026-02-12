@@ -10,9 +10,15 @@ cd "$PROJECT_ROOT"
 
 echo "Building TypeScript Audio Stream Server..."
 
+# Ensure native addons (mmap-io) are compiled with a modern C++ standard.
+export CXXFLAGS="${CXXFLAGS:-} -std=c++20"
+
 # Install dependencies
 echo "Installing dependencies..."
 npm install
+
+# Ensure native mmap addon is built for current Node ABI.
+bash "$SCRIPT_DIR/ensure-native-mmap.sh"
 
 # Build TypeScript
 echo "Building TypeScript..."

@@ -58,7 +58,9 @@ public struct SHA1 {
             buffer.append(UInt8((len >> 8) & 0xFF))
             buffer.append(UInt8(len & 0xFF))
             
-            process()
+            while buffer.count >= 64 {
+                process()
+            }
             
             var result = Data(count: 20)
             result.withUnsafeMutableBytes { ptr in
@@ -73,17 +75,18 @@ public struct SHA1 {
         }
         
         private mutating func process() {
+            guard buffer.count >= 64 else { return }
             var w = [UInt32](repeating: 0, count: 80)
             
             // Break chunk into sixteen 32-bit big-endian words w[i]
             for i in 0..<16 {
                 let j = i * 4
                 w[i] = UInt32(buffer[j]) << 24 |
-                       UInt32(buffer[j+1]) << 16 |
-                       UInt32(buffer[j+2]) << 8 |
-                       UInt32(buffer[j+3])
+                    UInt32(buffer[j + 1]) << 16 |
+                    UInt32(buffer[j + 2]) << 8 |
+                    UInt32(buffer[j + 3])
             }
-            buffer.removeAll()
+            buffer.removeFirst(64)
             
             // Extend the sixteen 32-bit words into eighty 32-bit words
             for i in 16..<80 {

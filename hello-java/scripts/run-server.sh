@@ -5,16 +5,15 @@
 set -e
 
 # Set JAVA_HOME based on OS
-if [[ -z "$JAVA_HOME" ]]; then
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        export JAVA_HOME="/opt/homebrew/opt/java/libexec/openjdk.jdk/Contents/Home"
-    elif [[ "$OSTYPE" == "linux"* ]]; then
-        JAVA_BIN=$(readlink -f "$(which java)" 2>/dev/null)
-        if [[ -n "$JAVA_BIN" ]]; then
-            export JAVA_HOME="${JAVA_BIN%/bin/java}"
-        fi
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    export JAVA_HOME="/Library/Java/JavaVirtualMachines/jdk-25.jdk/Contents/Home"
+elif [[ -z "$JAVA_HOME" && "$OSTYPE" == "linux"* ]]; then
+    JAVA_BIN=$(readlink -f "$(which java)" 2>/dev/null)
+    if [[ -n "$JAVA_BIN" ]]; then
+        export JAVA_HOME="${JAVA_BIN%/bin/java}"
     fi
 fi
+export PATH="$JAVA_HOME/bin:$PATH"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -37,4 +36,4 @@ if [ -z "$JAR_FILE" ]; then
     JAR_FILE=$(ls target/audio-stream-server*.jar 2>/dev/null | grep -v original | head -1)
 fi
 
-java --enable-preview -jar "$JAR_FILE" "$PORT" "$PATH_ENDPOINT"
+"$JAVA_HOME/bin/java" --enable-preview -jar "$JAR_FILE" "$PORT" "$PATH_ENDPOINT"

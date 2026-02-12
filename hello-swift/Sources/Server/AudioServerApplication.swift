@@ -43,15 +43,13 @@ struct AudioServerApplication {
 
         // Get singleton instances
         let streamManager = StreamManager.shared
-        let memoryPool = MemoryPoolManager.shared
 
         // Enable verbose logging for debugging
         Logger.setVerbose(true)
 
         // Create and start WebSocket server
         let server = AudioWebSocketServer(port: port, path: path,
-                                  streamManager: streamManager,
-                                  memoryPool: memoryPool)
+                                  streamManager: streamManager)
 
         // Handle graceful shutdown if possible
         #if !os(Windows)
