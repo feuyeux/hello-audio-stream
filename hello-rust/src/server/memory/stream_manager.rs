@@ -10,13 +10,11 @@ use std::time::{Duration, SystemTime};
 use super::{MemoryMappedCache, StreamContext, StreamStatus};
 
 /// Stream manager for managing multiple concurrent streams.
-#[allow(dead_code)]
 pub struct StreamManager {
     cache_directory: String,
     streams: Arc<Mutex<HashMap<String, Arc<Mutex<StreamContext>>>>>,
 }
 
-#[allow(dead_code)]
 impl StreamManager {
     /// Get the singleton instance of StreamManager.
     pub fn instance(cache_directory: String) -> Arc<Self> {

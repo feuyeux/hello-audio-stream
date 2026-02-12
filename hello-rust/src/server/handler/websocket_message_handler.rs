@@ -68,6 +68,7 @@ impl WebSocketMessageHandler {
     pub fn handle_binary_message(
         clients: &Arc<Mutex<HashMap<usize, String>>>,
         stream_mgr: &Arc<StreamManager>,
+        mem_pool: &Arc<MemoryPoolManager>,
         client_id: usize,
         data: &[u8],
     ) {
@@ -84,8 +85,17 @@ impl WebSocketMessageHandler {
 
         let stream_id = stream_id.unwrap();
 
-        // Write to stream
-        stream_mgr.write_chunk(&stream_id, data);
+        // Reuse pooled buffers to reduce short-lived allocations for chunk forwarding.
+        let mut buffer = mem_pool.acquire_buffer();
+        if buffer.len() < data.len() {
+            buffer.resize(data.len(), 0);
+        }
+        buffer[..data.len()].copy_from_slice(data);
+        stream_mgr.write_chunk(&stream_id, &buffer[..data.len()]);
+
+        if buffer.len() == mem_pool.get_buffer_size() {
+            mem_pool.release_buffer(buffer);
+        }
     }
 
     /// Handle START message (create new stream).

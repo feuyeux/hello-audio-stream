@@ -6,7 +6,6 @@
 use std::sync::{Arc, Mutex};
 
 /// Memory pool manager singleton.
-#[allow(dead_code)]
 pub struct MemoryPoolManager {
     buffer_size: usize,
     pool_size: usize,
@@ -14,7 +13,6 @@ pub struct MemoryPoolManager {
     total_buffers: Mutex<usize>,
 }
 
-#[allow(dead_code)]
 impl MemoryPoolManager {
     /// Get the singleton instance of MemoryPoolManager.
     pub fn instance(buffer_size: usize, pool_size: usize) -> Arc<Self> {

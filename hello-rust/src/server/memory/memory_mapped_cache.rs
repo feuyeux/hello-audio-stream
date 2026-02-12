@@ -8,17 +8,9 @@ use std::path::Path;
 use std::sync::Mutex;
 
 // Configuration constants - follows unified mmap specification v2.0.0
-#[allow(dead_code)]
-const DEFAULT_PAGE_SIZE: u64 = 64 * 1024 * 1024; // 64MB
-#[allow(dead_code)]
 const MAX_CACHE_SIZE: u64 = 8 * 1024 * 1024 * 1024; // 8GB
-#[allow(dead_code)]
-const SEGMENT_SIZE: u64 = 1 * 1024 * 1024 * 1024; // 1GB per segment
-#[allow(dead_code)]
-const BATCH_OPERATION_LIMIT: usize = 1000; // Max batch operations
 
 /// Memory-mapped cache implementation using memmap2.
-#[allow(dead_code)]
 pub struct MemoryMappedCache {
     path: String,
     file: Mutex<Option<File>>,
@@ -27,7 +19,6 @@ pub struct MemoryMappedCache {
     is_open: Mutex<bool>,
 }
 
-#[allow(dead_code)]
 impl MemoryMappedCache {
     /// Create a new MemoryMappedCache.
     pub fn new(path: String) -> Self {
@@ -217,25 +208,17 @@ impl MemoryMappedCache {
         }
     }
 
-    /// Get the size of the file.
-    pub fn get_size(&self) -> u64 {
-        *self.size.lock().unwrap()
-    }
-
-    /// Get the path of the file.
-    pub fn get_path(&self) -> &str {
-        &self.path
-    }
-
-    /// Check if the file is open.
-    pub fn is_open(&self) -> bool {
-        *self.is_open.lock().unwrap()
-    }
-
     /// Resize the file to a new size.
     pub fn resize(&self, new_size: u64) -> bool {
         if !*self.is_open.lock().unwrap() {
             eprintln!("File not open for resize: {}", self.path);
+            return false;
+        }
+        if new_size > MAX_CACHE_SIZE {
+            eprintln!(
+                "Resize exceeds max cache size: requested={}, max={}",
+                new_size, MAX_CACHE_SIZE
+            );
             return false;
         }
 
@@ -263,24 +246,6 @@ impl MemoryMappedCache {
         }
 
         println!("Resized file {} to {} bytes", self.path, new_size);
-        true
-    }
-
-    /// Flush all mapped data to disk.
-    pub fn flush(&self) -> bool {
-        if !*self.is_open.lock().unwrap() {
-            eprintln!("File not open for flush: {}", self.path);
-            return false;
-        }
-
-        if let Some(ref mmap) = *self.mmap.lock().unwrap() {
-            if let Err(e) = mmap.flush() {
-                eprintln!("Error flushing file {}: {:?}", self.path, e);
-                return false;
-            }
-        }
-
-        println!("Flushed file: {}", self.path);
         true
     }
 

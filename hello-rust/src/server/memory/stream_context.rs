@@ -6,26 +6,12 @@ use std::time::SystemTime;
 
 /// Stream status enumeration
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(dead_code)]
 pub enum StreamStatus {
     Uploading,
     Ready,
-    Error,
-}
-
-#[allow(dead_code)]
-impl StreamStatus {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            StreamStatus::Uploading => "UPLOADING",
-            StreamStatus::Ready => "READY",
-            StreamStatus::Error => "ERROR",
-        }
-    }
 }
 
 /// Stream context containing metadata and state for a single stream.
-#[allow(dead_code)]
 pub struct StreamContext {
     pub stream_id: String,
     pub cache_path: String,
@@ -37,7 +23,6 @@ pub struct StreamContext {
     pub status: StreamStatus,
 }
 
-#[allow(dead_code)]
 impl StreamContext {
     /// Create a new StreamContext.
     pub fn new(stream_id: String, cache_path: String) -> Self {
@@ -57,11 +42,6 @@ impl StreamContext {
     /// Update last accessed timestamp.
     pub fn update_access_time(&mut self) {
         self.last_accessed_at = SystemTime::now();
-    }
-
-    /// Get stream ID.
-    pub fn get_stream_id(&self) -> &str {
-        &self.stream_id
     }
 
     /// Get cache path.
@@ -87,11 +67,6 @@ impl StreamContext {
     /// Set total size.
     pub fn set_total_size(&mut self, size: u64) {
         self.total_size = size;
-    }
-
-    /// Get created at timestamp.
-    pub fn get_created_at(&self) -> SystemTime {
-        self.created_at
     }
 
     /// Get last accessed at timestamp.

@@ -53,27 +53,6 @@ pub async fn write_chunk(path: &str, data: &[u8], append: bool) -> Result<()> {
     Ok(())
 }
 
-#[allow(dead_code)]
-pub async fn read_file(path: &str) -> Result<Vec<u8>> {
-    tokio::fs::read(path)
-        .await
-        .context(format!("Failed to read file: {}", path))
-}
-
-#[allow(dead_code)]
-pub async fn write_file(path: &str, data: &[u8]) -> Result<()> {
-    // Ensure parent directory exists
-    if let Some(parent) = Path::new(path).parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .context("Failed to create output directory")?;
-    }
-
-    tokio::fs::write(path, data)
-        .await
-        .context(format!("Failed to write file: {}", path))
-}
-
 pub async fn compute_sha256(path: &str) -> Result<String> {
     let mut file = File::open(path)
         .await
