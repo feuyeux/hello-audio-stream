@@ -24,3 +24,4 @@ echo "Building Kotlin Audio Stream..."
 gradle build -x test installDist
 
 echo "Build completed successfully!"
+echo "Artifact: build/libs/hello-kotlin-1.0.0.jar"

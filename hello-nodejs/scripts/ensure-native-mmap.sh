@@ -9,8 +9,13 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
 PKG_DIR="node_modules/@fayzanx/mmap-io"
+MODE="${1:-build}"
 
 if [ ! -d "$PKG_DIR" ]; then
+    if [ "$MODE" = "check" ]; then
+        echo "ERROR: $PKG_DIR not found. Please run build scripts first."
+        exit 1
+    fi
     echo "Installing dependencies for native mmap..."
     npm install
 fi
@@ -30,12 +35,16 @@ TARGET_DIR="$PKG_DIR/build/binding/Release/node-v${ABI}-${PLATFORM}-${ARCH}"
 TARGET_FILE="$TARGET_DIR/mmap_io.node"
 
 if [ ! -f "$TARGET_FILE" ]; then
+    if [ "$MODE" = "check" ]; then
+        echo "ERROR: Native mmap binary missing for node-v${ABI}-${PLATFORM}-${ARCH}: $TARGET_FILE"
+        exit 1
+    fi
     echo "Building @fayzanx/mmap-io for node-v${ABI}-${PLATFORM}-${ARCH}..."
     export CXXFLAGS="${CXXFLAGS:-} -std=c++20"
     npm rebuild @fayzanx/mmap-io
 fi
 
-if [ ! -f "$TARGET_FILE" ] && [ -f "$PKG_DIR/build/Release/mmap_io.node" ]; then
+if [ "$MODE" != "check" ] && [ ! -f "$TARGET_FILE" ] && [ -f "$PKG_DIR/build/Release/mmap_io.node" ]; then
     mkdir -p "$TARGET_DIR"
     cp "$PKG_DIR/build/Release/mmap_io.node" "$TARGET_FILE"
 fi

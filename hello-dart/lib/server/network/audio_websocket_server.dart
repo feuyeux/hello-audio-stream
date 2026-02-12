@@ -2,6 +2,7 @@
 // Handles client connections and message routing.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:shelf/shelf.dart';
@@ -44,7 +45,7 @@ class AudioWebSocketServer {
       // Send CONNECTED message
       final connectionId = 'conn-${ws.hashCode}';
       final connectedMsg = common_types.ControlMessage.connected(connectionId);
-      ws.sink.add(connectedMsg.toJson());
+      ws.sink.add(jsonEncode(connectedMsg.toJson()));
       Logger.info('Sent CONNECTED message to client: $connectionId');
 
       // Handle messages from this client

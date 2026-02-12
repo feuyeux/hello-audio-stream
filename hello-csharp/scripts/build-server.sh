@@ -19,4 +19,4 @@ echo "Building project..."
 dotnet build --configuration Release --no-restore
 
 echo "Build completed successfully!"
-echo "Executable: bin/Release/net9.0/audio_stream_server"
+echo "Artifact: bin/Release/net9.0/hello_audio_stream.dll"

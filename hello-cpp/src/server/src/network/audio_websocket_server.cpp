@@ -36,6 +36,7 @@ void AudioWebSocketServer::initializeServer() {
 
     // Initialize ASIO
     server_.init_asio();
+    server_.set_reuse_addr(true);
 
     // Set message handler
     server_.set_message_handler(

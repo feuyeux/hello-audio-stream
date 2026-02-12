@@ -25,9 +25,16 @@ echo "Starting Kotlin Client..."
 echo "Server: $SERVER_URI"
 echo "Input: $INPUT_FILE"
 
-if [ ! -f "build/install/hello-kotlin/bin/hello-kotlin" ]; then
-    echo "Executable not found. Building..."
+JAR_FILE=$(ls build/libs/*.jar 2>/dev/null | head -1)
+if [ -z "$JAR_FILE" ]; then
+    echo "JAR not found. Building..."
     bash "$SCRIPT_DIR/build-client.sh"
+    JAR_FILE=$(ls build/libs/*.jar 2>/dev/null | head -1)
 fi
 
-build/install/hello-kotlin/bin/hello-kotlin --server "$SERVER_URI" --input "$INPUT_FILE"
+if [ -z "$JAR_FILE" ]; then
+    echo "Error: Kotlin client JAR not found after build."
+    exit 1
+fi
+
+"$JAVA_HOME/bin/java" -cp "$JAR_FILE" MainKt --server "$SERVER_URI" --input "$INPUT_FILE"
