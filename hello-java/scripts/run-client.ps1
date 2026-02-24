@@ -30,4 +30,4 @@ Write-Host "Starting Java Client..." -ForegroundColor Green
 Write-Host "Server: $ServerUri" -ForegroundColor Green
 Write-Host "Input: $InputFile" -ForegroundColor Green
 
-java --enable-preview -jar $ClientJar --server $ServerUri --input $InputFile
+java --enable-preview -jar $ClientJar --input $InputFile

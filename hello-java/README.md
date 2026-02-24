@@ -1,81 +1,88 @@
-# Audio Stream Cache - Java Implementation
+# Audio Stream Cache
 
-This directory contains a Java implementation of an audio stream cache utility that supports both upload and download
-operations using WebSocket communication.
+基于 WebSocket + mmap 的高性能音频流服务。
 
-## Features
+## 功能特性
 
-- **Bi-directional Stream**: Support for both uploading and downloading audio files
-- **Chunked Stream**: Files are streamed in chunks (default 64KB) for efficient processing
-- **WebSocket Communication**: Reusable WebSocket connection for low-latency streaming
-- **Automatic Reconnection**: Built-in retry mechanism for failed connections
-- **Error Handling**: Comprehensive error handling with retry logic
-- **Performance Metrics**: Detailed stream statistics including throughput
-- **Modern Java Features**: Uses JDK 25 features like records and pattern matching
+- **WebSocket流服务**：长连接双向流
+- **mmap存储**：高性能内存映射文件缓存
+- **虚拟线程**：JDK 25 虚拟线程处理并发
 
-## Technical Stack
+## 技术栈
 
-- **Language**: Java 25
-- **WebSocket Library**: Java-WebSocket (org.java-websocket:Java-WebSocket)
-- **Logging**: SLF4J with Logback
-- **Concurrency**: Virtual Threads (JDK 21+ feature)
-- **Build System**: Maven
-- **Testing**: JUnit 5
+- Java 25 (--enable-preview)
+- Netty 4.2
+- Java-WebSocket
+- SLF4J + Logback
+- Maven
 
-## Build and Run
+## 快速开始
 
-This is a multi-module Maven project with client and server modules. Use the provided build scripts for each platform.
-
-### Windows
+### 编译
 
 ```bash
-cd audio-stream-server
-.\build-server.ps1
-.\run-server.ps1
-
-cd audio-stream-client
-.\build-client.ps1
-.\run-client.ps1
-```
-
-### Linux/macOS
-
-```bash
-cd audio-stream-server
-./build-server.sh
-./run-server.sh
-
-cd audio-stream-client
-./build-client.sh
-./run-client.sh
-```
-
-### Using Maven directly
-
-```bash
-# Build all modules from root
-mvn clean install -DskipTests
-
-# Build server only
-cd audio-stream-server
+cd hello-java
 mvn clean package -DskipTests
+```
+
+### 运行服务端
+
+```bash
+cd audio-stream-server
 java --enable-preview -jar target/audio-stream-server-1.0.0.jar
-
-# Build client only
-cd audio-stream-client
-mvn clean package -DskipTests
-java --enable-preview -jar target/audio-stream-client-1.0.0.jar
 ```
 
-**Note**: This project requires JDK 25 and uses preview features. The `--enable-preview` flag is required when running
-the application.
-
-## Testing
+或使用脚本：
 
 ```bash
-# Run unit tests
-mvn test
+# Windows
+.\scripts\run-server.ps1
 
-# Run integration tests
-mvn verify
+# Linux/macOS
+./scripts/run-server.sh
 ```
+
+### 运行客户端
+
+```bash
+cd audio-stream-client
+java --enable-preview -jar target/audio-stream-client-1.0.0.jar --input <audio-file>
+```
+
+## 消息协议
+
+### 客户端 → 服务端
+
+| 类型 | 格式 | 示例 |
+|:------|:------|:------|
+| START | `{"type":"START","streamId":"xxx"}` | 开启流 |
+| DATA | 二进制数据 | 音频数据 |
+| GET | `{"type":"GET","streamId":"xxx","offset":0,"length":65536}` | 获取数据 |
+| STOP | `{"type":"STOP"}` | 关闭流 |
+
+### 服务端 → 客户端
+
+| 类型 | 格式 | 示例 |
+|:------|:------|:------|
+| CONNECTED | `{"type":"CONNECTED","streamId":"xxx"}` | 连接确认 |
+| STARTED | `{"type":"STARTED","streamId":"xxx"}` | 流创建成功 |
+| DATA | 二进制数据 | 返回音频数据 |
+| ERROR | `{"type":"ERROR","message":"xxx"}` | 错误信息 |
+
+## 配置
+
+| 参数 | 默认值 | 说明 |
+|:------|:--------|:------|
+| `ws.path` | /audio | WebSocket路径 |
+| `cache.dir` | cache | 缓存目录 |
+| server.port | 8080 | 监听端口 |
+
+## JDK 25 特性
+
+- 虚拟线程 (Virtual Threads)
+- Record 类
+- 模式匹配
+
+## License
+
+MIT
