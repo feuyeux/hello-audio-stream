@@ -21,11 +21,11 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
-dependencies = ["websockets>=14.0", "loguru>=0.7.3"]
+dependencies = ["websockets>=14.0"]
 
 [project.scripts]
-audio-stream-client = "client.audio_client_application:main"
-audio-stream-server = "server.audio_server_application:main"
+audio-stream-client = "client.__main__:main"
+audio-stream-server = "server.__main__:main"
 
 [project.optional-dependencies]
 dev = [

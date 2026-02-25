@@ -16,7 +16,7 @@ dart pub get
 
 # Compile to native executable
 echo "Compiling..."
-dart compile exe bin/audio_stream_server.dart -o audio_stream_server
+dart compile exe lib/server/server.dart -o audio_stream_server
 
 echo "Build completed successfully!"
 echo "Executable: audio_stream_server"

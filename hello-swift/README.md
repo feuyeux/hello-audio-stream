@@ -1,144 +1,71 @@
-# Swift Audio Stream Client
+# Audio Stream Cache — Swift Implementation
 
-A WebSocket-based audio stream cache client implemented in Swift with async/await.
+基于 WebSocket + mmap 的高性能音频流服务（Swift 实现）。
 
-## Prerequisites
+## 功能特性
 
-- **Swift**: Version 5.9 or higher
-- **macOS**: Version 13.0 or higher (for URLSessionWebSocketTask)
+- **WebSocket 流服务**：NIOWebSocket 原生 WebSocket 实现
+- **mmap 存储**：mmap/munmap 系统调用内存映射文件缓存
+- **Swift Concurrency**：async/await + actor 并发模型
+- **状态管理**：完整的流状态转换（UPLOADING → READY → ERROR）
+- **资源保护**：30 秒自动清理过期流，最大 1000 流
+- **SHA-1 校验**：客户端上传/下载完整性验证
 
-## Dependencies
+## 技术栈
 
-This implementation uses:
-- **Swift Standard Library**: Built-in async/await support
-- **Foundation**: URLSession for WebSocket communication
-- **CryptoKit**: Built-in SHA-256 hashing
-- **ArgumentParser**: 1.3.0 - Command-line argument parsing
+- Swift 6.0+
+- SwiftNIO + NIOWebSocket
+- Foundation（mmap/JSON）
+- 无外部依赖（纯 Swift Package Manager）
 
-## Building
+## 项目结构
 
-### Unix/Linux/macOS
+```
+hello-swift/
+├── Sources/
+│   ├── Server/
+│   │   ├── Server.swift           # WebSocket 服务器
+│   │   ├── StreamManager.swift    # 流管理器
+│   │   ├── MmapCache.swift        # mmap 缓存
+│   │   ├── Handler.swift          # 连接处理器
+│   │   ├── Message.swift          # JSON 消息
+│   │   ├── Protocol.swift         # 协议枚举
+│   │   ├── WebSocket.swift        # WebSocket 辅助
+│   │   └── SHA1.swift             # SHA-1 工具
+│   └── Client/
+│       └── Client.swift           # WebSocket 客户端
+├── scripts/                       # 构建 & 运行脚本
+└── Package.swift
+```
+
+## 快速开始
+
+### 构建
 
 ```bash
-./build.sh
+swift build -c release
 ```
 
-### Windows (PowerShell)
-
-```powershell
-.\build.ps1
-```
-
-The build script will:
-1. Resolve dependencies via Swift Package Manager
-2. Compile Swift source code in release mode
-3. Create an executable binary
-
-## Running
-
-### Unix/Linux/macOS
+### 运行服务端
 
 ```bash
-# Basic usage
-./run-client.sh --input ../audio/input/test.mp3
+.build/release/Server --port 8080
 
-# Custom server
-./run-client.sh --input ../audio/input/test.mp3 --server ws://192.168.1.100:8080/audio
-
-# Custom output path
-./run-client.sh --input ../audio/input/test.mp3 --output /tmp/output.mp3
-
-# Verbose mode
-./run-client.sh --input ../audio/input/test.mp3 --verbose
+# 或使用脚本
+./scripts/run-server.sh
+.\scripts\run-server.ps1
 ```
 
-### Windows (PowerShell)
-
-```powershell
-# Basic usage
-.\run-client.ps1 --input ..\audio\input\test.mp3
-
-# Custom server
-.\run-client.ps1 --input ..\audio\input\test.mp3 --server ws://192.168.1.100:8080/audio
-
-# Custom output path
-.\run-client.ps1 --input ..\audio\input\test.mp3 --output C:\temp\output.mp3
-
-# Verbose mode
-.\run-client.ps1 --input ..\audio\input\test.mp3 --verbose
-```
-
-## Command-Line Options
-
-- `--input <path>`: Path to input audio file (required)
-- `--output <path>`: Path to output audio file (optional, default: `audio/output/output-<timestamp>-<filename>`)
-- `--server <uri>`: WebSocket server URI (optional, default: `ws://localhost:8080/audio`)
-- `--verbose`: Enable verbose logging (optional)
-- `--help`: Display help message
-
-## Architecture
-
-The client follows a modular architecture:
-
-- **CliParser**: Command-line argument parsing using ArgumentParser
-- **WebSocketClient**: WebSocket connection management using URLSessionWebSocketTask
-- **AudioFileManager**: File I/O operations with SHA-256 checksums using CryptoKit
-- **Upload**: Upload workflow with 8KB chunks
-- **Download**: Download workflow with GET requests
-- **Verification**: File integrity verification
-- **Performance**: Performance monitoring and reporting
-- **Logger**: Structured logging with timestamps
-
-## Workflow
-
-1. **Parse Arguments**: Validate input file and configuration
-2. **Connect**: Establish WebSocket connection to server
-3. **Upload**: Send file in 8KB chunks with progress reporting
-4. **Download**: Request and receive file chunks
-5. **Verify**: Compare SHA-256 checksums and file sizes
-6. **Report**: Display performance metrics (throughput, duration)
-
-## Testing
+### 运行客户端
 
 ```bash
-# Run tests with Swift Package Manager
-swift test
+.build/release/Client --server ws://localhost:8080 --input ../audio/input/hello.opus
+
+# 或使用脚本
+./scripts/run-client.sh
+.\scripts\run-client.ps1
 ```
 
-## Platform Support
+## 消息协议
 
-- ✅ macOS 13+
-- ⚠️ Linux (requires alternative WebSocket library)
-- ⚠️ Windows (requires alternative WebSocket library)
-
-## Implementation Notes
-
-- Uses Swift's native async/await for concurrency
-- URLSessionWebSocketTask for WebSocket communication (macOS 13+ only)
-- CryptoKit for SHA-256 computation
-- 8KB upload chunks to avoid WebSocket frame fragmentation
-- ArgumentParser for elegant CLI interface
-
-## Troubleshooting
-
-### Build Fails
-
-- Ensure Swift 5.9+ is installed: `swift --version`
-- Ensure macOS 13+ for URLSessionWebSocketTask
-- Clean build directory: `swift package clean`
-
-### Connection Refused
-
-- Ensure WebSocket server is running on port 8080
-- Check server URI is correct
-- Verify network connectivity
-
-### File Not Found
-
-- Ensure input file path is correct
-- Use absolute paths or paths relative to project root
-- Check file permissions
-
-## License
-
-Part of the cross-language audio streaming project.
+参见 [hello-java/README.md](../hello-java/README.md#消息协议) 获取完整协议说明。

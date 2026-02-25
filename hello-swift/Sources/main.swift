@@ -1,3 +1,0 @@
-import Foundation
-
-AudioClientApplication.main()

@@ -1,7 +1,7 @@
 # Run Client - Kotlin Implementation (Windows PowerShell)
 param(
-    [string]$ServerUri = "ws://localhost:8080/audio",
-    [string]$InputFile = "..\audio\input\hello.mp3",
+    [string]$ServerUri = "ws://localhost:8080",
+    [string]$InputFile = "..\audio\input\hello.opus",
     [string]$OutputFile
 )
 

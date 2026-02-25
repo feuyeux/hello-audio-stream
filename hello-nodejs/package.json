@@ -5,9 +5,8 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "START": "node src/index.js",
-    "start:client": "node src/client/AudioClientApplication.js",
-    "start:server": "node src/server/AudioServerApplication.js"
+    "start:server": "node src/server.js",
+    "start:client": "node src/client.js"
   },
   "keywords": [
     "audio",
@@ -19,7 +18,6 @@
   "license": "MIT",
   "dependencies": {
     "ws": "^8.19.0",
-    "commander": "^14.0.0",
-    "@fayzanx/mmap-io": "^1.7.0"
+    "commander": "^14.0.0"
   }
 }

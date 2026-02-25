@@ -1,7 +1,6 @@
 # Run Server - C++ Implementation (Windows PowerShell)
 param(
-    [int]$Port = 8080,
-    [string]$PathEndpoint = "/audio"
+    [int]$Port = 8080
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -22,8 +21,7 @@ if (-not (Test-Path "cache")) {
 }
 
 Write-Host "Starting C++ Server on port $Port..." -ForegroundColor Green
-Write-Host "Endpoint: $PathEndpoint" -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
-& $ServerBin $Port $PathEndpoint
+& $ServerBin $Port

@@ -14,7 +14,6 @@ if [[ "$(uname)" == "Linux" ]]; then
 fi
 
 PORT=${1:-8080}
-PATH_ENDPOINT=${2:-/audio}
 
 SERVER_BIN=".build/release/audio_stream_server"
 
@@ -28,8 +27,7 @@ if [ ! -d "cache" ]; then
 fi
 
 echo "Starting Swift Server on port $PORT..."
-echo "Endpoint: $PATH_ENDPOINT"
 echo "Press Ctrl+C to stop"
 echo ""
 
-exec "$SERVER_BIN" "$PORT" "$PATH_ENDPOINT"
+exec "$SERVER_BIN" --port "$PORT"

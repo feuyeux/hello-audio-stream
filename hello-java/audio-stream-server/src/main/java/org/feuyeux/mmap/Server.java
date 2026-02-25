@@ -13,6 +13,7 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.stream.ChunkedWriteHandler;
 
 public class Server {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Server.class);
     private static final int PORT = 8080;
     private static final String PATH = System.getProperty("ws.path", "/audio");
 
@@ -65,7 +66,7 @@ public class Server {
             .childOption(ChannelOption.SO_SNDBUF, 64 * 1024);
 
         ch = b.bind(PORT).sync().channel();
-        System.out.println("Server started on " + PORT);
+        log.info("Server started on port {}", PORT);
     }
 
     public void shutdown() {

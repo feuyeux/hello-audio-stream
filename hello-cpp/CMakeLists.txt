@@ -13,7 +13,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-option(BUILD_TESTS "Build tests" ON)
 option(BUILD_CLIENT "Build client" ON)
 option(BUILD_SERVER "Build server" ON)
 
@@ -27,10 +26,10 @@ endif()
 
 include(FetchContent)
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/lib")
+if(EXISTS "${CMAKE_SOURCE_DIR}/lib")
     set(USE_LOCAL_DEPS TRUE)
-    set(LOCAL_DEPS_PATH "${CMAKE_SOURCE_DIR}/scripts/lib")
-    message(STATUS "Using local dependencies from scripts/lib/")
+    set(LOCAL_DEPS_PATH "${CMAKE_SOURCE_DIR}/lib")
+    message(STATUS "Using local dependencies from lib/")
 endif()
 
 if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/asio")
@@ -67,17 +66,7 @@ else()
     set(BUILD_TESTS ${BUILD_TESTS_SAVED} CACHE BOOL "" FORCE)
 endif()
 
-if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/spdlog")
-    set(spdlog_SOURCE_DIR ${LOCAL_DEPS_PATH}/spdlog)
-    add_subdirectory(${spdlog_SOURCE_DIR} ${CMAKE_BINARY_DIR}/spdlog-build EXCLUDE_FROM_ALL)
-else()
-    FetchContent_Declare(spdlog
-        GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.14.1
-        GIT_SHALLOW TRUE
-    )
-    FetchContent_MakeAvailable(spdlog)
-endif()
+# spdlog removed — using std::cout/std::cerr
 
 if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/nlohmann_json")
     set(nlohmann_json_SOURCE_DIR ${LOCAL_DEPS_PATH}/nlohmann_json)
@@ -99,43 +88,11 @@ else()
     endif()
 endif()
 
-if(BUILD_TESTS)
-    if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/googletest")
-        set(googletest_SOURCE_DIR ${LOCAL_DEPS_PATH}/googletest)
-        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-        add_subdirectory(${googletest_SOURCE_DIR} ${CMAKE_BINARY_DIR}/googletest-build EXCLUDE_FROM_ALL)
-    else()
-        FetchContent_Declare(googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG v1.14.0
-            GIT_SHALLOW TRUE
-        )
-        FetchContent_MakeAvailable(googletest)
-    endif()
-
-    if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/rapidcheck")
-        set(rapidcheck_SOURCE_DIR ${LOCAL_DEPS_PATH}/rapidcheck)
-        set(RC_ENABLE_GTEST ON CACHE BOOL "Enable RapidCheck GTest integration")
-        add_subdirectory(${rapidcheck_SOURCE_DIR} ${CMAKE_BINARY_DIR}/rapidcheck-build EXCLUDE_FROM_ALL)
-    else()
-        FetchContent_Declare(rapidcheck
-            GIT_REPOSITORY https://github.com/emil-e/rapidcheck.git
-            GIT_TAG master
-            GIT_SHALLOW TRUE
-        )
-        set(RC_ENABLE_GTEST ON CACHE BOOL "Enable RapidCheck GTest integration")
-        FetchContent_MakeAvailable(rapidcheck)
-    endif()
-
-    enable_testing()
-    include(GoogleTest)
-endif()
+# test dependencies removed
 
 include_directories(
-    ${PROJECT_SOURCE_DIR}/src/client/include
-    ${PROJECT_SOURCE_DIR}/src/server/include
+    ${PROJECT_SOURCE_DIR}/include
     ${websocketpp_SOURCE_DIR}
-    ${spdlog_SOURCE_DIR}/include
 )
 
 if(USE_LOCAL_DEPS AND EXISTS "${LOCAL_DEPS_PATH}/nlohmann_json")
@@ -162,10 +119,8 @@ if(BUILD_SERVER)
     add_subdirectory(src/server)
 endif()
 
-install(DIRECTORY src/client/include/ DESTINATION include/audio_stream_cache/client
-    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
-install(DIRECTORY src/server/include/ DESTINATION include/audio_stream_cache/server
-    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+install(DIRECTORY include/ DESTINATION include/audio_stream_cache
+    FILES_MATCHING PATTERN "*.h")
 
 set(CPACK_PACKAGE_NAME "AudioStreamCache")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")

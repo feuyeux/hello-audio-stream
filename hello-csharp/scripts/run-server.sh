@@ -9,10 +9,8 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
 PORT=${1:-8080}
-PATH_ENDPOINT=${2:-/audio}
 
 echo "Starting C# Server on port $PORT..."
-echo "Endpoint: $PATH_ENDPOINT"
 echo "Press Ctrl+C to stop"
 echo ""
 
@@ -27,4 +25,4 @@ if [ ! -f "$APP_DLL" ]; then
     exit 1
 fi
 
-dotnet "$APP_DLL" server "$PORT" "$PATH_ENDPOINT"
+dotnet "$APP_DLL" server --port "$PORT"

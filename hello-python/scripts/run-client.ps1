@@ -27,4 +27,4 @@ if ($OutputFile) {
     $clientArgs += @("--output", $OutputFile)
 }
 
-python -m client.audio_client_application @clientArgs
+python -m client @clientArgs

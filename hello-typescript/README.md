@@ -1,171 +1,78 @@
-# Audio Stream Cache Client - TypeScript Implementation
+# Audio Stream Cache — TypeScript Implementation
 
-TypeScript implementation of the audio stream cache client using WebSocket protocol.
+基于 WebSocket + mmap 的高性能音频流服务（TypeScript 实现）。
 
-## Features
+## 功能特性
 
-- ✅ WebSocket-based stream
-- ✅ Chunked upload/download (8KB upload, 64KB download)
-- ✅ SHA-256 file verification
-- ✅ Performance monitoring
-- ✅ Verbose logging support
-- ✅ Cross-platform support (Windows, macOS, Linux)
+- **WebSocket 流服务**：ws 库实现高性能 WebSocket 通信
+- **mmap 存储**：mmap-io 内存映射文件缓存
+- **异步处理**：async/await 异步连接处理
+- **状态管理**：完整的流状态转换（UPLOADING → READY → ERROR）
+- **资源保护**：30 秒自动清理过期流，最大 1000 流
+- **SHA-256 校验**：客户端上传/下载完整性验证
 
-## Requirements
+## 技术栈
 
-- Node.js 18+ or 20+
-- npm or yarn
+- Node.js 18+ / TypeScript 5.0+
+- ws（WebSocket）
+- mmap-io
+- commander（CLI）
 
-## Installation
+## 项目结构
+
+```
+hello-typescript/
+├── src/
+│   ├── server.ts                  # 服务端入口
+│   ├── client.ts                  # 客户端入口
+│   ├── server/
+│   │   ├── server.ts              # WebSocket 服务器
+│   │   ├── streamManager.ts       # 流管理器
+│   │   ├── mmapCache.ts           # mmap 缓存
+│   │   ├── handler.ts             # 连接处理器
+│   │   ├── message.ts             # JSON 消息
+│   │   └── protocol.ts            # 协议枚举
+│   └── client/
+│       └── client.ts              # WebSocket 客户端
+├── scripts/                       # 构建 & 运行脚本
+├── tsconfig.json
+└── package.json
+```
+
+## 快速开始
+
+### 安装依赖
 
 ```bash
-# Install dependencies
 npm install
-
-# Build the project
-npm run build
 ```
 
-## Usage
-
-### Basic Usage
+### 编译
 
 ```bash
-# Using npm script
-npm start -- --input path/to/audio.mp3
-
-# Using run script
-./run-client.sh --input path/to/audio.mp3
-
-# Windows PowerShell
-.\run-client.ps1 --input path\to\audio.mp3
+npx tsc
 ```
 
-### Command-Line Options
-
-```
-Options:
-  -i, --input <file>    Input audio file path (required)
-  -s, --server <uri>    WebSocket server URI (default: ws://localhost:8080/audio)
-  -o, --output <file>   Output file path (auto-generated if not specified)
-  -v, --verbose         Enable verbose logging
-  -h, --help            Display help information
-  --version             Display version information
-```
-
-### Examples
+### 运行服务端
 
 ```bash
-# Upload and download with default server
-npm start -- --input audio/input/hello.mp3
+npx ts-node src/server.ts --port 8080
 
-# Specify custom server
-npm start -- --input audio/input/hello.mp3 --server ws://example.com:8080/audio
-
-# Specify output path
-npm start -- --input audio/input/hello.mp3 --output audio/output/result.mp3
-
-# Enable verbose logging
-npm start -- --input audio/input/hello.mp3 --verbose
+# 或使用脚本
+./scripts/run-server.sh
+.\scripts\run-server.ps1
 ```
 
-## Building
-
-### Unix/Linux/macOS
+### 运行客户端
 
 ```bash
-chmod +x build.sh
-./build.sh
+npx ts-node src/client.ts --server ws://localhost:8080 --input ../audio/input/hello.opus
+
+# 或使用脚本
+./scripts/run-client.sh
+.\scripts\run-client.ps1
 ```
 
-### Windows (PowerShell)
+## 消息协议
 
-```powershell
-.\build.ps1
-```
-
-## Development
-
-```bash
-# Run in development mode with ts-node
-npm run dev -- --input path/to/audio.mp3
-
-# Clean build artifacts
-npm run clean
-
-# Rebuild
-npm run build
-```
-
-## Architecture
-
-The TypeScript implementation follows a modular architecture:
-
-- **cli.ts** - Command-line argument parsing using commander
-- **websocket.ts** - WebSocket client with async/await
-- **file.ts** - File I/O operations with fs/promises
-- **performance.ts** - Performance metrics tracking
-- **logger.ts** - Structured logging with timestamps
-- **types.ts** - TypeScript type definitions
-- **index.ts** - Main application entry point
-
-## Protocol
-
-### Upload Flow
-
-1. Send START control message with stream ID
-2. Wait for STARTED acknowledgment
-3. Send file data in 8KB binary chunks
-4. Send STOP control message
-5. Wait for STOPPED acknowledgment
-
-### Download Flow
-
-1. Send GET control message with offset and length
-2. Receive binary data chunk (8KB from server)
-3. Repeat until all data received
-
-### Control Messages
-
-All control messages are JSON-formatted text messages:
-
-```typescript
-interface ControlMessage {
-  type: 'start' | 'started' | 'stop' | 'stopped' | 'get' | 'error';
-  streamId?: string;
-  offset?: number;
-  length?: number;
-  message?: string;
-}
-```
-
-## Performance
-
-The client tracks and reports:
-- Upload duration and throughput (Mbps)
-- Download duration and throughput (Mbps)
-- Total duration and average throughput
-
-Performance targets:
-- Upload: >100 Mbps
-- Download: >200 Mbps
-
-## Error Handling
-
-The client handles:
-- Connection failures with clear error messages
-- File I/O errors
-- Protocol errors from server
-- Verification failures
-
-## Dependencies
-
-- **ws** (^8.16.0) - WebSocket client library
-- **commander** (^11.1.0) - CLI argument parsing
-- **typescript** (^5.3.3) - TypeScript compiler
-- **@types/node** (^20.11.0) - Node.js type definitions
-- **@types/ws** (^8.5.10) - ws library type definitions
-
-## License
-
-MIT
+参见 [hello-java/README.md](../hello-java/README.md#消息协议) 获取完整协议说明。

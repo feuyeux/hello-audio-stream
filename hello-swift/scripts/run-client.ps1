@@ -33,4 +33,4 @@ if (-not (Test-Path "test_input.txt")) {
 }
 
 Write-Host "Starting Swift Audio Stream Client..." -ForegroundColor Green
-& $ClientExe --input test_input.txt --output received_output.txt --server ws://localhost:8080/audio --verbose
+& $ClientExe --input ..\audio\input\hello.opus --server ws://localhost:8080

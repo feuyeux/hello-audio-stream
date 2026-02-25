@@ -18,8 +18,8 @@ elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     export GRADLE_HOME=/home/hanl5/zoo/gradle-8.11.1
 fi
 
-SERVER_URI=${1:-ws://localhost:8080/audio}
-INPUT_FILE=${2:-../audio/input/hello.mp3}
+SERVER_URI=${1:-ws://localhost:8080}
+INPUT_FILE=${2:-../audio/input/hello.opus}
 
 echo "Starting Kotlin Client..."
 echo "Server: $SERVER_URI"
@@ -37,4 +37,4 @@ if [ -z "$JAR_FILE" ]; then
     exit 1
 fi
 
-"$JAVA_HOME/bin/java" -cp "$JAR_FILE" MainKt --server "$SERVER_URI" --input "$INPUT_FILE"
+"$JAVA_HOME/bin/java" -cp "$JAR_FILE" MainKt client --server "$SERVER_URI" --input "$INPUT_FILE"

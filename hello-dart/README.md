@@ -1,142 +1,77 @@
-# Dart Audio Stream Client
+# Audio Stream Cache — Dart Implementation
 
-A WebSocket-based audio stream cache client implemented in Dart with async/await.
+基于 WebSocket + mmap 的高性能音频流服务（Dart 实现）。
 
-## Prerequisites
+## 功能特性
 
-- **Dart SDK**: Version 3.0 or higher
+- **WebSocket 流服务**：shelf_web_socket（服务端）+ web_socket_channel（客户端）
+- **mmap 存储**：RandomAccessFile 内存映射文件缓存
+- **async/await 异步**：Dart 异步模型高效连接处理
+- **状态管理**：完整的流状态转换（UPLOADING → READY → ERROR）
+- **资源保护**：30 秒自动清理过期流，最大 1000 流
+- **MD5 校验**：客户端上传/下载完整性验证
 
-## Dependencies
+## 技术栈
 
-This implementation uses:
-- **web_socket_channel**: 2.4.0 - WebSocket communication
-- **args**: 2.4.0 - Command-line argument parsing
-- **crypto**: 3.0.0 - SHA-256 hashing
-- **intl**: 0.18.0 - Date formatting
+- Dart 3.0+
+- shelf + shelf_web_socket
+- web_socket_channel
+- crypto（MD5）
+- args（CLI）
 
-## Building
+## 项目结构
 
-### Unix/Linux/macOS
+```
+hello-dart/
+├── lib/
+│   ├── server/
+│   │   ├── server.dart            # WebSocket 服务器
+│   │   ├── stream_manager.dart    # 流管理器
+│   │   ├── mmap_cache.dart        # mmap 缓存
+│   │   ├── handler.dart           # 连接处理器
+│   │   ├── message.dart           # JSON 消息
+│   │   └── protocol.dart          # 协议枚举
+│   └── client/
+│       └── client.dart            # WebSocket 客户端
+├── scripts/                       # 构建 & 运行脚本
+└── pubspec.yaml
+```
+
+## 快速开始
+
+### 安装依赖
 
 ```bash
-./build.sh
+dart pub get
 ```
 
-### Windows (PowerShell)
-
-```powershell
-.\build.ps1
-```
-
-The build script will:
-1. Get dependencies via pub
-2. Compile Dart code to native executable
-
-## Running
-
-### Unix/Linux/macOS
+### 编译
 
 ```bash
-# Basic usage
-./run-client.sh --input ../audio/input/test.mp3
-
-# Custom server
-./run-client.sh --input ../audio/input/test.mp3 --server ws://192.168.1.100:8080/audio
-
-# Custom output path
-./run-client.sh --input ../audio/input/test.mp3 --output /tmp/output.mp3
-
-# Verbose mode
-./run-client.sh --input ../audio/input/test.mp3 --verbose
+dart compile exe lib/server/server.dart -o audio/audio_stream_server.exe
+dart compile exe lib/client/client.dart -o audio/audio_stream_client.exe
 ```
 
-### Windows (PowerShell)
-
-```powershell
-# Basic usage
-.\run-client.ps1 --input ..\audio\input\test.mp3
-
-# Custom server
-.\run-client.ps1 --input ..\audio\input\test.mp3 --server ws://192.168.1.100:8080/audio
-
-# Custom output path
-.\run-client.ps1 --input ..\audio\input\test.mp3 --output C:\temp\output.mp3
-
-# Verbose mode
-.\run-client.ps1 --input ..\audio\input\test.mp3 --verbose
-```
-
-## Command-Line Options
-
-- `--input <path>`: Path to input audio file (required)
-- `--output <path>`: Path to output audio file (optional, default: `audio/output/output-<timestamp>-<filename>`)
-- `--server <uri>`: WebSocket server URI (optional, default: `ws://localhost:8080/audio`)
-- `--verbose` or `-v`: Enable verbose logging (optional)
-- `--help` or `-h`: Display help message
-
-## Architecture
-
-The client follows a modular architecture:
-
-- **CliParser**: Command-line argument parsing using args package
-- **WebSocketClient**: WebSocket connection management using web_socket_channel
-- **FileManager**: File I/O operations with SHA-256 checksums using crypto
-- **Upload**: Upload workflow with 8KB chunks
-- **Download**: Download workflow with GET requests
-- **Verification**: File integrity verification
-- **Performance**: Performance monitoring and reporting
-- **Logger**: Structured logging with timestamps
-
-## Workflow
-
-1. **Parse Arguments**: Validate input file and configuration
-2. **Connect**: Establish WebSocket connection to server
-3. **Upload**: Send file in 8KB chunks with progress reporting
-4. **Download**: Request and receive file chunks
-5. **Verify**: Compare SHA-256 checksums and file sizes
-6. **Report**: Display performance metrics (throughput, duration)
-
-## Testing
+### 运行服务端
 
 ```bash
-# Run tests with Dart
-dart test
+dart run lib/server/server.dart --port 8080
+
+# 或使用脚本
+./scripts/run-server.sh
+.\scripts\run-server.ps1
 ```
 
-## Platform Support
+### 运行客户端
 
-- ✅ Windows 10/11
-- ✅ Ubuntu 20.04/22.04
-- ✅ macOS 12+
+```bash
+dart run lib/client/client.dart --server ws://localhost:8080 --input ../audio/input/hello.opus
 
-## Implementation Notes
+# 或使用脚本
+./scripts/run-client.sh
+.\scripts\run-client.ps1
+```
 
-- Uses Dart's native async/await for concurrency
-- web_socket_channel for WebSocket communication
-- crypto package for SHA-256 computation
-- 8KB upload chunks to avoid WebSocket frame fragmentation
-- args package for CLI interface
+## 消息协议
 
-## Troubleshooting
-
-### Build Fails
-
-- Ensure Dart SDK 3.0+ is installed: `dart --version`
-- Get dependencies: `dart pub get`
-- Clean build: `dart pub cache clean`
-
-### Connection Refused
-
-- Ensure WebSocket server is running on port 8080
-- Check server URI is correct
-- Verify network connectivity
-
-### File Not Found
-
-- Ensure input file path is correct
-- Use absolute paths or paths relative to project root
-- Check file permissions
-
-## License
-
-Part of the cross-language audio streaming project.
+参见 [hello-java/README.md](../hello-java/README.md#消息协议) 获取完整协议说明。

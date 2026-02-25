@@ -30,4 +30,4 @@ echo "Port: $PORT, Endpoint: $PATH_ENDPOINT"
 echo "Press Ctrl+C to stop"
 echo ""
 
-python -m server.main --port "$PORT" --path "$PATH_ENDPOINT"
+python -m server --port "$PORT"

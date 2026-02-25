@@ -12,18 +12,40 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class StreamManager {
-    private final String cacheDir;
+    private final Config config;
     private final Map<String, Stream> streams = new ConcurrentHashMap<>();
     private final Map<String, ReentrantLock> locks = new ConcurrentHashMap<>();
     private final ReentrantLock regLock = new ReentrantLock();
+
+    public record Config(
+        String cacheDir,
+        long maxIdleHours,
+        long maxUploadingHours,
+        long maxStreams
+    ) {
+        public static Config defaults() {
+            return new Config(
+                System.getProperty("cache.dir", "cache"),
+                24, 1, 1000
+            );
+        }
+    }
+
+    public record Stats(
+        int totalStreams,
+        long uploadingStreams,
+        long readyStreams,
+        long errorStreams
+    ) {}
 
     public static class Stream {
         public final String id;
         public final String path;
         public final MmapCache cache;
         public long off = 0;
-        public Instant created = Instant.now();
-        public Instant lastAccess = Instant.now();
+        public final Instant created = Instant.now();
+        private final java.util.concurrent.atomic.AtomicReference<Instant> lastAccess =
+            new java.util.concurrent.atomic.AtomicReference<>(Instant.now());
         public Status status = Status.UPLOADING;
 
         public enum Status { UPLOADING, READY, ERROR }
@@ -49,19 +71,27 @@ public class StreamManager {
             return r;
         }
 
+        public void touch() {
+            lastAccess.set(Instant.now());
+        }
+
+        public Instant getLastAccess() {
+            return lastAccess.get();
+        }
+
         public void close() throws IOException {
             cache.close();
         }
     }
 
     public StreamManager() {
-        this(System.getProperty("cache.dir", "cache"));
+        this(Config.defaults());
     }
 
-    public StreamManager(String cacheDir) {
-        this.cacheDir = cacheDir;
+    public StreamManager(Config config) {
+        this.config = config;
         try {
-            var p = Paths.get(cacheDir);
+            var p = Paths.get(config.cacheDir);
             if (!Files.exists(p)) Files.createDirectories(p);
         } catch (IOException e) {
             throw new RuntimeException("Cannot init cache dir", e);
@@ -72,7 +102,8 @@ public class StreamManager {
         regLock.lock();
         try {
             if (streams.containsKey(id)) return false;
-            var s = new Stream(id, cacheDir + "/" + id + ".cache");
+            if (streams.size() >= config.maxStreams) return false;
+            var s = new Stream(id, config.cacheDir + "/" + id + ".cache");
             locks.put(id, new ReentrantLock());
             streams.put(id, s);
             return true;
@@ -84,9 +115,27 @@ public class StreamManager {
     }
 
     public Stream get(String id) {
-        var s = streams.get(id);
-        if (s != null) s.lastAccess = Instant.now();
-        return s;
+        return streams.computeIfPresent(id, (k, s) -> {
+            s.touch();
+            return s;
+        });
+    }
+
+    public boolean complete(String id) {
+        var s = get(id);
+        if (s == null || s.status != Stream.Status.UPLOADING) return false;
+        var lock = locks.get(id);
+        if (lock == null) return false;
+        lock.lock();
+        try {
+            if (s.status == Stream.Status.UPLOADING) {
+                s.status = Stream.Status.READY;
+                return true;
+            }
+            return false;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void write(String id, byte[] data) {
@@ -143,13 +192,31 @@ public class StreamManager {
         regLock.lock();
         try {
             var now = Instant.now();
+            var toDelete = new java.util.ArrayList<String>();
             for (var e : streams.entrySet()) {
-                if (java.time.Duration.between(e.getValue().lastAccess, now).toHours() > 24) {
-                    delete(e.getKey());
+                var s = e.getValue();
+                var idle = java.time.Duration.between(s.getLastAccess(), now);
+                // Clean up streams idle for more than maxIdleHours, or uploading for more than maxUploadingHours
+                if (idle.toHours() > config.maxIdleHours ||
+                    (s.status == Stream.Status.UPLOADING && idle.toHours() > config.maxUploadingHours)) {
+                    toDelete.add(e.getKey());
                 }
+            }
+            for (var id : toDelete) {
+                delete(id);
             }
         } finally {
             regLock.unlock();
         }
+    }
+
+    public Stats getStats() {
+        var values = streams.values();
+        return new Stats(
+            values.size(),
+            values.stream().filter(s -> s.status == Stream.Status.UPLOADING).count(),
+            values.stream().filter(s -> s.status == Stream.Status.READY).count(),
+            values.stream().filter(s -> s.status == Stream.Status.ERROR).count()
+        );
     }
 }

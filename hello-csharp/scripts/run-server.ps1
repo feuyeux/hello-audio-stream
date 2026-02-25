@@ -1,7 +1,6 @@
 # Run Server - C# Implementation (Windows PowerShell)
 param(
-    [int]$Port = 8080,
-    [string]$PathEndpoint = "/audio"
+    [int]$Port = 8080
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -11,8 +10,7 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
 Write-Host "Starting C# Server on port $Port..." -ForegroundColor Green
-Write-Host "Endpoint: $PathEndpoint" -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
-dotnet run -c Release -- server --port $Port --path $PathEndpoint
+dotnet run -c Release -- server --port $Port

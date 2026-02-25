@@ -42,44 +42,104 @@ public class Handler extends SimpleChannelInboundHandler<WebSocketFrame> {
     private void handleText(ChannelHandlerContext ctx, String json) {
         try {
             var msg = Message.parse(json);
-            var type = msg.typeEnum();
-            log.info("Message type: {}, streamId: {}", type, msg.streamId());
-            if (type == null) { sendErr(ctx, "Invalid type"); return; }
+            var cmdInfo = msg.parseCommand();
+            log.info("Command: {}, streamId: {}", msg.command(), msg.streamId());
+            
+            if (cmdInfo == null) { 
+                sendErr(ctx, "Invalid command"); 
+                return; 
+            }
 
-            switch (type) {
-                case START -> {
-                    String sid = msg.streamId() != null ? msg.streamId() : conn;
-                    if (mgr.create(sid)) {
-                        streamId = sid;
-                        send(ctx, Message.started(sid));
-                    } else {
-                        sendErr(ctx, "Create failed");
-                    }
-                }
-                case STOP -> {
-                    send(ctx, Message.stopped(streamId));
-                    // Don't clear streamId - client may download after upload on same connection
-                }
-                case GET -> {
-                    if (msg.offset() == null || msg.length() == null) {
-                        sendErr(ctx, "Missing params"); return;
-                    }
-                    // Use message's streamId if provided, otherwise use connection's current streamId
-                    String sid = msg.streamId() != null ? msg.streamId() : streamId;
-                    if (sid == null) {
-                        sendErr(ctx, "No stream"); return;
-                    }
-                    var data = mgr.read(sid, msg.offset(), msg.length());
-                    if (data != null && data.length > 0) {
-                        ctx.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(data)));
-                    } else {
-                        sendErr(ctx, "No data");
-                    }
-                }
+            switch (cmdInfo.type()) {
+                case STREAM -> handleStreamCommand(ctx, msg, cmdInfo.asStreamCommand());
+                case DATA -> handleDataCommand(ctx, msg, cmdInfo.asDataCommand());
+                case QUERY -> handleQueryCommand(ctx, msg, cmdInfo.asQueryCommand());
             }
         } catch (Exception e) {
             log.error("Parse error", e);
             sendErr(ctx, "Parse error");
+        }
+    }
+
+    private void handleStreamCommand(ChannelHandlerContext ctx, Message msg, 
+                                     org.feuyeux.mmap.protocol.StreamCommand cmd) {
+        switch (cmd) {
+            case CREATE -> {
+                String sid = msg.streamId() != null ? msg.streamId() : conn;
+                if (mgr.create(sid)) {
+                    streamId = sid;
+                    send(ctx, Message.created(sid));
+                } else {
+                    sendErr(ctx, "Create failed");
+                }
+            }
+            case COMPLETE -> {
+                if (streamId == null) {
+                    sendErr(ctx, "No stream"); 
+                    return;
+                }
+                if (mgr.complete(streamId)) {
+                    send(ctx, Message.completed(streamId));
+                } else {
+                    sendErr(ctx, "Complete failed");
+                }
+            }
+            case CLOSE -> {
+                String sid = msg.streamId() != null ? msg.streamId() : streamId;
+                if (sid == null) {
+                    sendErr(ctx, "No stream"); 
+                    return;
+                }
+                mgr.delete(sid);
+                send(ctx, Message.closed(sid));
+                if (sid.equals(streamId)) {
+                    streamId = null;
+                }
+            }
+        }
+    }
+
+    private void handleDataCommand(ChannelHandlerContext ctx, Message msg, 
+                                   org.feuyeux.mmap.protocol.DataCommand cmd) {
+        if (cmd == org.feuyeux.mmap.protocol.DataCommand.READ) {
+            if (msg.offset() == null || msg.length() == null) {
+                sendErr(ctx, "Missing params"); 
+                return;
+            }
+            String sid = msg.streamId() != null ? msg.streamId() : streamId;
+            if (sid == null) {
+                sendErr(ctx, "No stream"); 
+                return;
+            }
+            var data = mgr.read(sid, msg.offset(), msg.length());
+            if (data != null && data.length > 0) {
+                ctx.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(data)));
+            } else {
+                sendErr(ctx, "No data");
+            }
+        }
+    }
+
+    private void handleQueryCommand(ChannelHandlerContext ctx, Message msg, 
+                                    org.feuyeux.mmap.protocol.QueryCommand cmd) {
+        switch (cmd) {
+            case GET_STATUS -> {
+                String sid = msg.streamId() != null ? msg.streamId() : streamId;
+                if (sid == null) {
+                    sendErr(ctx, "No stream"); 
+                    return;
+                }
+                var s = mgr.get(sid);
+                if (s != null) {
+                    send(ctx, Message.status(sid, s.status.name(), s.off));
+                } else {
+                    sendErr(ctx, "Stream not found");
+                }
+            }
+            case LIST_STREAMS -> {
+                var ids = mgr.list();
+                send(ctx, Message.streamList(ids));
+            }
         }
     }
 
@@ -121,6 +181,15 @@ public class Handler extends SimpleChannelInboundHandler<WebSocketFrame> {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
         log.info("Connection closed: {}", conn);
+        // Clean up if stream is still uploading
+        if (streamId != null) {
+            var s = mgr.get(streamId);
+            if (s != null && s.status == StreamManager.Stream.Status.UPLOADING) {
+                log.warn("Connection closed during upload, marking stream as error: {}", streamId);
+                // Mark as error but don't delete - let cleanup handle it
+                s.status = StreamManager.Stream.Status.ERROR;
+            }
+        }
     }
 
     @Override

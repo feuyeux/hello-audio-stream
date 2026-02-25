@@ -1,81 +1,75 @@
-# Audio Stream - Rust Implementation
+# Audio Stream Cache — Rust Implementation
 
-高性能音频流传输系统，使用内存映射文件 I/O（mmap）实现高效的 WebSocket 文件传输。
+基于 WebSocket + mmap 的高性能音频流服务（Rust 实现）。
+
+## 功能特性
+
+- **WebSocket 流服务**：tokio-tungstenite 异步 WebSocket
+- **mmap 存储**：memmap2 内存映射文件缓存
+- **Tokio 异步运行时**：高效并发连接处理
+- **状态管理**：完整的流状态转换（UPLOADING → READY → ERROR）
+- **资源保护**：30 秒自动清理过期流，最大 1000 流
+- **SHA-256 校验**：客户端上传/下载完整性验证
+
+## 技术栈
+
+- Rust 1.70+
+- tokio + tokio-tungstenite
+- serde + serde_json
+- memmap2
+- clap (CLI)
+
+## 项目结构
+
+```
+hello-rust/
+├── src/
+│   ├── lib.rs
+│   ├── bin/
+│   │   ├── server.rs              # 服务端入口
+│   │   └── client.rs              # 客户端入口
+│   ├── server/
+│   │   ├── mod.rs
+│   │   ├── server.rs              # WebSocket 服务器
+│   │   ├── stream_manager.rs      # 流管理器
+│   │   ├── mmap_cache.rs          # mmap 缓存
+│   │   ├── handler.rs             # 连接处理器
+│   │   ├── message.rs             # JSON 消息
+│   │   └── protocol.rs            # 协议枚举
+│   └── client/
+│       └── mod.rs                 # WebSocket 客户端
+├── scripts/                       # 构建 & 运行脚本
+└── Cargo.toml
+```
 
 ## 快速开始
 
-### 前置要求
-
-- Rust 1.70+
-- Cargo（Rust 包管理器）
-
-### 构建和运行
-
-本项目提供了跨平台的构建和运行脚本，位于 `scripts/` 目录：
-
-#### Windows (PowerShell)
-
-```powershell
-# 构建客户端
-.\scripts\build-client.ps1
-
-# 运行客户端
-.\scripts\run-client.ps1
-
-# 构建服务端
-.\scripts\build-server.ps1
-
-# 运行服务端
-.\scripts\run-server.ps1
-```
-
-#### Unix/Linux/macOS (Bash)
+### 构建
 
 ```bash
-# 构建客户端
-./scripts/build-client.sh
-
-# 运行客户端
-./scripts/run-client.sh
-
-# 构建服务端
-./scripts/build-server.sh
-
-# 运行服务端
-./scripts/run-server.sh
-```
-
-### 手动构建
-
-```bash
-# 构建 Debug 版本
-cargo build
-
-# 构建 Release 版本
 cargo build --release
 ```
 
-### 运行二进制文件
+### 运行服务端
 
 ```bash
-# 运行客户端（Debug）
-cargo run --bin audio_stream_client
+./target/release/server --port 8080
 
-# 运行服务端（Debug）
-cargo run --bin audio_stream_server
-
-# 运行客户端（Release）
-./target/release/audio_stream_client
-
-# 运行服务端（Release）
-./target/release/audio_stream_server
+# 或使用脚本
+./scripts/run-server.sh
+.\scripts\run-server.ps1
 ```
 
-### RustRover
+### 运行客户端
 
-```sh
-# server
-run --package audio-stream --bin audio_stream_server
-# client
-run --package audio-stream --bin audio_stream_client -- --server ws://localhost:8080/audio --input ..\audio\input\hello.mp3
+```bash
+./target/release/client --server ws://localhost:8080 --input ../audio/input/hello.opus
+
+# 或使用脚本
+./scripts/run-client.sh
+.\scripts\run-client.ps1
 ```
+
+## 消息协议
+
+参见 [hello-java/README.md](../hello-java/README.md#消息协议) 获取完整协议说明。

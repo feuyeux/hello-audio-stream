@@ -1,6 +1,6 @@
 {
     "name": "hello-audio-stream/php",
-    "description": "Audio stream cache client using WebSocket",
+    "description": "Audio stream cache - PHP implementation",
     "type": "project",
     "require": {
         "php": ">=8.3",
@@ -9,10 +9,8 @@
     },
     "autoload": {
         "psr-4": {
-            "AudioStreamClient\\": "src/Client/",
-            "AudioStreamServer\\": "src/Server/"
-        },
-        "classmap": ["src/Logger.php", "src/CliParser.php"]
-    },
-    "bin": ["audio_stream_client.php"]
+            "AudioStream\\Client\\": "src/Client/",
+            "AudioStream\\Server\\": "src/Server/"
+        }
+    }
 }

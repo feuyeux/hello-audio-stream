@@ -1,10 +1,14 @@
-// Command to run the audio stream server
 package main
 
 import (
-	"github.com/feuyeux/hello-mmap/hello-go/src/server"
+"flag"
+"github.com/feuyeux/hello-mmap/hello-go/src/server"
 )
 
 func main() {
-	server.Run()
+port := flag.Int("port", 8080, "server port")
+path := flag.String("path", "/audio", "websocket path")
+cacheDir := flag.String("cache", "cache", "cache directory")
+flag.Parse()
+server.Run(*port, *path, *cacheDir)
 }

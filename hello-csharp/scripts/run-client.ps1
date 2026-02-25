@@ -1,6 +1,6 @@
 # Run Client - C# Implementation (Windows PowerShell)
 param(
-    [string]$ServerUri = "ws://localhost:8080/audio",
+    [string]$ServerUri = "ws://localhost:8080",
     [string]$InputFile = "..\audio\input\hello.mp3",
     [string]$OutputFile
 )

@@ -1,7 +1,6 @@
 # Run Server - Dart Implementation (Windows PowerShell)
 param(
-    [int]$Port = 8080,
-    [string]$PathEndpoint = "/audio"
+    [int]$Port = 8080
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -16,8 +15,7 @@ if (-not (Test-Path "audio_stream_server.exe")) {
 }
 
 Write-Host "Starting Dart Server on port $Port..." -ForegroundColor Green
-Write-Host "Endpoint: $PathEndpoint" -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
-.\audio_stream_server.exe --port $Port --path $PathEndpoint
+.\audio_stream_server.exe --port $Port

@@ -16,7 +16,7 @@ dart pub get
 
 # Compile to native executable
 echo "Compiling..."
-dart compile exe bin/audio_stream_client.dart -o audio_stream_client
+dart compile exe lib/client/client.dart -o audio_stream_client
 
 echo "Build completed successfully!"
 echo "Executable: audio_stream_client"

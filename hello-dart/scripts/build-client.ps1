@@ -9,7 +9,7 @@ Set-Location $ProjectRoot
 Write-Host "Building Dart Client..." -ForegroundColor Cyan
 
 dart pub get
-dart compile exe lib/audio_stream_client.dart -o audio_stream_client.exe
+dart compile exe lib/client/client.dart -o audio_stream_client.exe
 
 Write-Host "Client build complete!" -ForegroundColor Green
 Write-Host "Binary: audio_stream_client.exe" -ForegroundColor Green

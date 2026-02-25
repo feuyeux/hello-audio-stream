@@ -1,167 +1,71 @@
-# Audio Stream Cache Client - Node.js Implementation
+# Audio Stream Cache — Node.js Implementation
 
-Pure JavaScript implementation of the audio stream cache client using WebSocket protocol.
+基于 WebSocket + mmap 的高性能音频流服务（Node.js 实现）。
 
-## Features
+## 功能特性
 
-- ✅ WebSocket-based stream
-- ✅ Chunked upload/download (8KB upload, 64KB download)
-- ✅ SHA-256 file verification
-- ✅ Performance monitoring
-- ✅ Verbose logging support
-- ✅ Cross-platform support (Windows, macOS, Linux)
-- ✅ No build step required (pure JavaScript)
+- **WebSocket 流服务**：ws 库实现高性能 WebSocket 通信
+- **mmap 存储**：mmap-io 内存映射文件缓存
+- **异步处理**：ES Module + async/await 异步连接处理
+- **状态管理**：完整的流状态转换（UPLOADING → READY → ERROR）
+- **资源保护**：30 秒自动清理过期流，最大 1000 流
+- **SHA-256 校验**：客户端上传/下载完整性验证
 
-## Requirements
+## 技术栈
 
-- Node.js 18+ or 20+
-- npm
+- Node.js 18+（ES Module）
+- ws（WebSocket）
+- mmap-io
+- commander（CLI）
 
-## Installation
+## 项目结构
+
+```
+hello-nodejs/
+├── src/
+│   ├── server.js                  # 服务端入口
+│   ├── client.js                  # 客户端入口
+│   ├── server/
+│   │   ├── server.js              # WebSocket 服务器
+│   │   ├── streamManager.js       # 流管理器
+│   │   ├── mmapCache.js           # mmap 缓存
+│   │   ├── handler.js             # 连接处理器
+│   │   ├── message.js             # JSON 消息
+│   │   └── protocol.js            # 协议枚举
+│   └── client/
+│       └── client.js              # WebSocket 客户端
+├── scripts/                       # 构建 & 运行脚本
+└── package.json
+```
+
+## 快速开始
+
+### 安装依赖
 
 ```bash
-# Install dependencies
 npm install
 ```
 
-## Usage
-
-### Basic Usage
+### 运行服务端
 
 ```bash
-# Using npm script
-npm start -- --input path/to/audio.mp3
+node src/server.js --port 8080
 
-# Using run script
-./run-client.sh --input path/to/audio.mp3
-
-# Direct execution
-node src/index.js --input path/to/audio.mp3
-
-# Windows PowerShell
-.\run-client.ps1 --input path\to\audio.mp3
+# 或使用脚本
+./scripts/run-server.sh
+.\scripts\run-server.ps1
 ```
 
-### Command-Line Options
-
-```
-Options:
-  -i, --input <file>    Input audio file path (required)
-  -s, --server <uri>    WebSocket server URI (default: ws://localhost:8080/audio)
-  -o, --output <file>   Output file path (auto-generated if not specified)
-  -v, --verbose         Enable verbose logging
-  -h, --help            Display help information
-  --version             Display version information
-```
-
-### Examples
+### 运行客户端
 
 ```bash
-# Upload and download with default server
-node src/index.js --input audio/input/hello.mp3
+node src/client.js --server ws://localhost:8080 --input ../audio/input/hello.opus
 
-# Specify custom server
-node src/index.js --input audio/input/hello.mp3 --server ws://example.com:8080/audio
-
-# Specify output path
-node src/index.js --input audio/input/hello.mp3 --output audio/output/result.mp3
-
-# Enable verbose logging
-node src/index.js --input audio/input/hello.mp3 --verbose
+# 或使用脚本
+./scripts/run-client.sh
+.\scripts\run-client.ps1
 ```
 
-## Building
+## 消息协议
 
-### Unix/Linux/macOS
-
-```bash
-chmod +x build.sh run-client.sh
-./build.sh
-```
-
-### Windows (PowerShell)
-
-```powershell
-.\build.ps1
-```
-
-## Architecture
-
-The Node.js implementation uses ES modules and follows a modular architecture:
-
-- **cli.js** - Command-line argument parsing using commander
-- **core/WebSocketClient.js** - WebSocket client with async/await
-- **core/ChunkManager.js** - Data chunk management
-- **core/FileManager.js** - File I/O operations with fs/promises
-- **core/UploadManager.js** - Upload workflow coordination
-- **core/DownloadManager.js** - Download workflow coordination
-- **util/ErrorHandler.js** - Centralized error handling
-- **util/PerformanceMonitor.js** - Performance metrics tracking
-- **util/StreamIdGenerator.js** - Unique stream identifier generation
-- **util/VerificationModule.js** - SHA-256 checksum verification
-- **AudioClientApplication.js** - Main application entry point
-
-## Protocol
-
-### Upload Flow
-
-1. Send START control message with stream ID
-2. Wait for STARTED acknowledgment
-3. Send file data in 8KB binary chunks
-4. Send STOP control message
-5. Wait for STOPPED acknowledgment
-
-### Download Flow
-
-1. Send GET control message with offset and length
-2. Receive binary data chunk (8KB from server)
-3. Repeat until all data received
-
-### Control Messages
-
-All control messages are JSON-formatted text messages:
-
-```javascript
-{
-  type: 'start' | 'started' | 'stop' | 'stopped' | 'get' | 'error',
-  streamId?: string,
-  offset?: number,
-  length?: number,
-  message?: string
-}
-```
-
-## Performance
-
-The client tracks and reports:
-- Upload duration and throughput (Mbps)
-- Download duration and throughput (Mbps)
-- Total duration and average throughput
-
-Performance targets:
-- Upload: >100 Mbps
-- Download: >200 Mbps
-
-## Error Handling
-
-The client handles:
-- Connection failures with clear error messages
-- File I/O errors
-- Protocol errors from server
-- Verification failures
-
-## Dependencies
-
-- **ws** (^8.16.0) - WebSocket client library
-- **commander** (^11.1.0) - CLI argument parsing
-
-## Differences from TypeScript Version
-
-- No compilation step required
-- Uses ES modules (`type: "module"` in package.json)
-- Pure JavaScript (no type annotations)
-- Slightly faster startup time (no compilation)
-
-## License
-
-MIT
+参见 [hello-java/README.md](../hello-java/README.md#消息协议) 获取完整协议说明。

@@ -28,4 +28,4 @@ if (-not (Test-Path $ServerExe)) {
 }
 
 Write-Host "Starting Swift Audio Stream Server..." -ForegroundColor Green
-& $ServerExe --port 8080 --path /audio
+& $ServerExe --port 8080

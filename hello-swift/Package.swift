@@ -11,58 +11,18 @@ let package = Package(
         .executable(name: "audio_stream_client", targets: ["AudioStreamClient"]),
         .executable(name: "audio_stream_server", targets: ["AudioStreamServer"]),
     ],
-    dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.6.0"),
-    ],
+    dependencies: [],
     targets: [
-        .target(
-            name: "AudioStreamCommon",
-            dependencies: [],
-            path: "Sources",
-            sources: [
-                "Logger.swift",
-                "Types.swift",
-                "SHA1.swift",
-            ]
-        ),
         .executableTarget(
             name: "AudioStreamClient",
-            dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                "AudioStreamCommon",
-            ],
-            path: "Sources",
-            sources: [
-                "main.swift",
-                "Client/AudioClientApplication.swift",
-                "Client/Core/WebSocketClient.swift",
-                "Client/Core/ChunkManager.swift",
-                "Client/Core/UploadManager.swift",
-                "Client/Core/DownloadManager.swift",
-                "Client/Core/FileManager.swift",
-                "Client/Util/ErrorHandler.swift",
-                "Client/Util/PerformanceMonitor.swift",
-                "Client/Util/StreamIdGenerator.swift",
-                "Client/Util/VerificationModule.swift",
-            ]
+            dependencies: [],
+            path: "Sources/Client"
         ),
         .executableTarget(
             name: "AudioStreamServer",
-            dependencies: [
-                "AudioStreamCommon",
-                .product(name: "Logging", package: "swift-log"),
-            ],
-            path: "Sources",
-            sources: [
-                "Server/AudioServerApplication.swift",
-                "Server/Handler/WebSocketMessageHandler.swift",
-                "Server/Memory/MemoryMappedCache.swift",
-                "Server/Memory/MemoryPoolManager.swift",
-                "Server/Memory/StreamContext.swift",
-                "Server/Memory/StreamManager.swift",
-                "Server/Network/AudioWebSocketServer.swift",
-            ]
+            dependencies: [],
+            path: "Sources/Server"
         ),
     ],
+    swiftLanguageModes: [.v5]
 )

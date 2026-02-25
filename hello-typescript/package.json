@@ -5,10 +5,10 @@
   "main": "dist/client/AudioClientApplication.js",
   "scripts": {
     "build": "tsc",
-    "START": "node dist/client/AudioClientApplication.js",
-    "start:server": "node dist/server/AudioServerApplication.js",
-    "dev": "ts-node src/client/AudioClientApplication.ts",
-    "dev:server": "ts-node src/server/AudioServerApplication.ts",
+    "start:server": "node dist/server.js",
+    "start:client": "node dist/client.js",
+    "dev:server": "ts-node src/server.ts",
+    "dev:client": "ts-node src/client.ts",
     "clean": "rm -rf dist"
   },
   "keywords": [
@@ -21,7 +21,6 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^14.0.0",
-    "@fayzanx/mmap-io": "^1.7.0",
     "ws": "^8.19.0"
   },
   "devDependencies": {

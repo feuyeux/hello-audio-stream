@@ -1,141 +1,72 @@
-# Kotlin Audio Stream Client
+# Audio Stream Cache — Kotlin Implementation
 
-A WebSocket-based audio stream cache client implemented in Kotlin with coroutines.
+基于 WebSocket + mmap 的高性能音频流服务（Kotlin 实现）。
 
-## Prerequisites
+## 功能特性
 
-- **Java Development Kit (JDK)**: Version 21 or higher
-- **Gradle**: Version 8.0 or higher (system installation required)
+- **WebSocket 流服务**：Ktor WebSocket 服务端/客户端
+- **mmap 存储**：MappedByteBuffer 内存映射文件缓存
+- **协程并发**：Kotlin Coroutines 高效连接处理
+- **状态管理**：完整的流状态转换（UPLOADING → READY → ERROR）
+- **资源保护**：30 秒自动清理过期流，最大 1000 流
+- **MD5 校验**：客户端上传/下载完整性验证
 
-## Dependencies
+## 技术栈
 
-This implementation uses:
-- **Kotlin**: 1.9.25
-- **Kotlinx Coroutines**: 1.8.1 - For async operations
-- **Kotlinx Serialization**: 1.6.3 - For JSON serialization
-- **Ktor Client**: 2.3.12 - For WebSocket communication
-- **Java MessageDigest**: Built-in - For SHA-256 checksums
+- JDK 21+
+- Kotlin 2.0+ / Kotlin Coroutines
+- Ktor 3.0（Netty 引擎）
+- kotlinx.serialization
+- Gradle (Kotlin DSL)
 
-## Building
+## 项目结构
 
-### Unix/Linux/macOS
+```
+hello-kotlin/
+├── src/main/kotlin/
+│   ├── Main.kt                    # 统一入口（server / client）
+│   ├── server/
+│   │   ├── Server.kt              # WebSocket 服务器
+│   │   ├── StreamManager.kt       # 流管理器
+│   │   ├── MmapCache.kt           # mmap 缓存
+│   │   ├── Handler.kt             # 连接处理器
+│   │   ├── Message.kt             # JSON 消息
+│   │   └── Protocol.kt            # 协议枚举
+│   └── client/
+│       └── Client.kt              # WebSocket 客户端
+├── scripts/                       # 构建 & 运行脚本
+├── build.gradle.kts
+└── settings.gradle.kts
+```
+
+## 快速开始
+
+### 构建
 
 ```bash
-./build.sh
+gradle build
 ```
 
-### Windows (PowerShell)
-
-```powershell
-.\build.ps1
-```
-
-The build script will:
-1. Clean previous builds
-2. Compile Kotlin source code
-3. Run tests (if any)
-4. Create an executable JAR file
-
-## Running
-
-### Unix/Linux/macOS
+### 运行服务端
 
 ```bash
-# Basic usage
-./run-client.sh --input ../audio/input/test.mp3
+gradle runServer --args="--port 8080"
 
-# Custom server
-./run-client.sh --input ../audio/input/test.mp3 --server ws://192.168.1.100:8080/audio
-
-# Custom output path
-./run-client.sh --input ../audio/input/test.mp3 --output /tmp/output.mp3
-
-# Verbose mode
-./run-client.sh --input ../audio/input/test.mp3 --verbose
+# 或使用脚本
+./scripts/run-server.sh
+.\scripts\run-server.ps1
 ```
 
-### Windows (PowerShell)
+### 运行客户端
 
-```powershell
-# Basic usage
-.\run-client.ps1 --input ..\audio\input\test.mp3
+```bash
+gradle runClient --args="--server ws://localhost:8080 --input ../audio/input/hello.opus"
 
-# Custom server
-.\run-client.ps1 --input ..\audio\input\test.mp3 --server ws://192.168.1.100:8080/audio
-
-# Custom output path
-.\run-client.ps1 --input ..\audio\input\test.mp3 --output C:\temp\output.mp3
-
-# Verbose mode
-.\run-client.ps1 --input ..\audio\input\test.mp3 --verbose
+# 或使用脚本
+./scripts/run-client.sh
+.\scripts\run-client.ps1
 ```
 
-## Command-Line Options
+## 消息协议
 
-- `--input <path>`: Path to input audio file (required)
-- `--output <path>`: Path to output audio file (optional, default: `audio/output/output-<timestamp>-<filename>`)
-- `--server <uri>`: WebSocket server URI (optional, default: `ws://localhost:8080/audio`)
-- `--verbose`: Enable verbose logging (optional)
-- `--help`: Display help message
-
-## Architecture
-
-The client follows a modular architecture:
-
-- **CliParser**: Command-line argument parsing
-- **WebSocketClient**: WebSocket connection management using Ktor
-- **FileManager**: File I/O operations with SHA-256 checksums
-- **Upload**: Upload workflow with 8KB chunks
-- **Download**: Download workflow with GET requests
-- **Verification**: File integrity verification
-- **Performance**: Performance monitoring and reporting
-- **Logger**: Structured logging with timestamps
-
-## Workflow
-
-1. **Parse Arguments**: Validate input file and configuration
-2. **Connect**: Establish WebSocket connection to server
-3. **Upload**: Send file in 8KB chunks with progress reporting
-4. **Download**: Request and receive file chunks
-5. **Verify**: Compare SHA-256 checksums and file sizes
-6. **Report**: Display performance metrics (throughput, duration)
-
- 
-
-## Platform Support
-
-- ✅ Windows 10/11
-- ✅ Ubuntu 20.04/22.04
-- ✅ macOS 12+
-
-## Implementation Notes
-
-- Uses Kotlin coroutines for async operations
-- Ktor client for WebSocket communication
-- 8KB upload chunks to avoid WebSocket frame fragmentation
-- Incremental SHA-256 computation for memory efficiency
-- Structured logging with timestamps and log levels
-
-## Troubleshooting
-
-### Build Fails
-
-- Ensure JDK 21+ is installed: `java -version`
-- Ensure Gradle is accessible: `gradle --version`
-- Clean build directory: `gradle clean`
-
-### Connection Refused
-
-- Ensure WebSocket server is running on port 8080
-- Check server URI is correct
-- Verify network connectivity
-
-### File Not Found
-
-- Ensure input file path is correct
-- Use absolute paths or paths relative to project root
-- Check file permissions
-
-## License
-
-Part of the cross-language audio streaming project.
+参见 [hello-java/README.md](../hello-java/README.md#消息协议) 获取完整协议说明。

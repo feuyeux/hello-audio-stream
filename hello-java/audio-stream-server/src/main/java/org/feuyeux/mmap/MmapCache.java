@@ -137,6 +137,9 @@ public class MmapCache implements AutoCloseable {
     }
 
     private void resize(long newSize) throws IOException {
+        if (newSize > MAX_SIZE) {
+            throw new IOException("Size exceeds limit: " + newSize + " > " + MAX_SIZE);
+        }
         for (var s : segs.values()) s.force();
         segs.clear();
         raf.setLength(newSize);

@@ -11,6 +11,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class Client {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Client.class);
     private static final String DEFAULT_URI = "ws://localhost:8080/audio";
     private static final int CHUNK = 64 * 1024;
 
@@ -25,7 +26,7 @@ public class Client {
             if ("--input".equals(args[i]) && i + 1 < args.length) input = args[++i];
         }
         if (input == null) {
-            System.err.println("Usage: --input <file>");
+            log.error("Usage: --input <file>");
             System.exit(1);
         }
 
@@ -35,24 +36,24 @@ public class Client {
 
         var client = new Client();
         if (!client.connect(DEFAULT_URI, 3)) {
-            System.err.println("Connect failed");
+            log.error("Connect failed");
             System.exit(1);
         }
 
         String streamId = "s-" + System.currentTimeMillis();
-        System.out.println("=== Upload ===");
+        log.info("=== Upload ===");
         client.upload(in, streamId);
 
-        System.out.println("=== Download ===");
+        log.info("=== Download ===");
         client.download(streamId, out);
 
-        System.out.println("=== Verify ===");
+        log.info("=== Verify ===");
         if (check(in, out)) {
-            System.out.println("SUCCESS");
+            log.info("SUCCESS");
             client.close();
             System.exit(0);
         } else {
-            System.err.println("FAILED");
+            log.error("FAILED");
             client.close();
             System.exit(1);
         }
@@ -77,10 +78,10 @@ public class Client {
                     }
                     @Override public void onClose(int c, String r, boolean rmt) { 
                         connected = false; 
-                        System.out.println("Closed: " + c + " " + r);
+                        log.debug("Connection closed: code={}, reason={}", c, r);
                     }
                     @Override public void onError(Exception e) { 
-                        e.printStackTrace(); 
+                        log.error("WebSocket error", e); 
                     }
                 };
                 ws.connect();
@@ -95,19 +96,19 @@ public class Client {
                 ws.close();
                 Thread.sleep(1000L * (i + 1));
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Connection attempt {} failed", i + 1, e);
             }
         }
         return false;
     }
 
     public void upload(Path file, String streamId) throws Exception {
-        send("{\"type\":\"START\",\"streamId\":\"" + streamId + "\"}");
+        send(Message.create(streamId).toJson());
         
-        // Wait for STARTED response
+        // Wait for CREATED response
         var resp = txtQ.poll(5, TimeUnit.SECONDS);
-        System.out.println("Server: " + resp);
-        if (resp == null || !resp.contains("STARTED")) {
+        log.info("Server response: {}", resp);
+        if (resp == null || !resp.contains("CREATED")) {
             throw new RuntimeException("Server not ready");
         }
         
@@ -122,22 +123,22 @@ public class Client {
                 total += chunk.length;
                 buf.clear();
             }
-            System.out.println("Uploaded " + total + " bytes");
+            log.info("Uploaded {} bytes", total);
         }
 
         Thread.sleep(100);
-        send("{\"type\":\"STOP\"}");
+        send(Message.complete().toJson());
         
-        // Wait for STOPPED response
+        // Wait for COMPLETED response
         resp = txtQ.poll(5, TimeUnit.SECONDS);
-        System.out.println("Server: " + resp);
+        log.info("Server response: {}", resp);
     }
 
     public void download(String streamId, Path output) throws Exception {
         long off = 0;
         
-        // First GET should start from offset 0
-        send("{\"type\":\"GET\",\"offset\":0,\"length\":" + CHUNK + "}");
+        // First READ should start from offset 0
+        send(Message.read(0, CHUNK).toJson());
         
         try (var ch = java.nio.channels.FileChannel.open(output, 
             java.nio.file.StandardOpenOption.CREATE, 
@@ -149,13 +150,13 @@ public class Client {
                 if (data == null || data.length == 0) break;
                 ch.write(ByteBuffer.wrap(data));
                 off += data.length;
-                System.out.println("Downloaded " + off + " bytes");
+                log.debug("Downloaded {} bytes", off);
                 if (data.length < CHUNK) break;
                 
                 // Request next chunk
-                send("{\"type\":\"GET\",\"offset\":" + off + ",\"length\":" + CHUNK + "}");
+                send(Message.read(off, CHUNK).toJson());
             }
-            System.out.println("Download complete: " + off + " bytes");
+            log.info("Download complete: {} bytes", off);
         }
     }
 
@@ -183,8 +184,8 @@ public class Client {
         var hb = md.digest();
         var hashA = hex.formatHex(ha);
         var hashB = hex.formatHex(hb);
-        System.out.println("Input  MD5: " + hashA);
-        System.out.println("Output MD5: " + hashB);
+        log.info("Input  MD5: {}", hashA);
+        log.info("Output MD5: {}", hashB);
         return hashA.equals(hashB);
     }
 }

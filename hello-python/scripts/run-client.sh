@@ -25,4 +25,4 @@ echo "Starting Audio Stream Client (Python)..."
 echo "Server: $SERVER_URI"
 echo "Input: $INPUT_FILE"
 
-python -m client.audio_client_application --server "$SERVER_URI" --input "$INPUT_FILE"
+python -m client --server "$SERVER_URI" --input "$INPUT_FILE"
