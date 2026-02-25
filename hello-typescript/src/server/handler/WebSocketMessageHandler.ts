@@ -141,7 +141,7 @@ export class WebSocketMessageHandler {
 
     // Finalize stream
     if (this.streamManager.finalizeStream(streamId)) {
-      this.currentStreamId = null;
+      // Don't clear currentStreamId - client may download after upload on same connection
       const response = WebSocketMessage.stopped(streamId);
       ws.send(response.toJSON());
       console.log(`Stream finalized: ${streamId}`);

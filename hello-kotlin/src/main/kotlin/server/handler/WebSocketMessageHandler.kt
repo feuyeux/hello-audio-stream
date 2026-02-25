@@ -123,8 +123,7 @@ class WebSocketMessageHandler(
             sendJson(response)
             Logger.info("Stream finalized: ${data.streamId}")
 
-            // Unregister stream from client
-            activeStreams[clientId] = ""
+            // Don't unregister stream from client - client may download after upload on same connection
         } else {
             sendError("Failed to finalize stream: ${data.streamId}")
         }

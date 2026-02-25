@@ -124,15 +124,12 @@ void WebSocketMessageHandler::handleStopMessage(const WebSocketMessage &msg,
     std::string streamId = msg.streamId.value();
     spdlog::info("Stopping stream: {}", streamId);
 
-    // Disassociate connection from stream
-    disassociateConnection(connectionId);
+    // Don't disassociate connection from stream - client may download after upload on same connection
 
     // Send success response using WebSocketMessage
     WebSocketMessage response = WebSocketMessage::stopped(streamId);
     sendText(response.toJsonString());
-    spdlog::info(
-        "Stream {} stopped successfully and disconnected from connection",
-        streamId);
+    spdlog::info("Stream {} stopped successfully", streamId);
   } catch (const std::exception &e) {
     spdlog::error("Error handling STOP message: {}", e.what());
     sendErrorMessage("Internal error processing STOP message", sendText);

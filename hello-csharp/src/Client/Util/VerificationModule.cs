@@ -18,6 +18,10 @@ public static class VerificationModule
         long originalSize = await FileManager.GetFileSizeAsync(originalPath);
         long downloadedSize = await FileManager.GetFileSizeAsync(downloadedPath);
 
+        // Log hash values
+        System.Console.WriteLine($"  Original  SHA-256: {originalChecksum}");
+        System.Console.WriteLine($"  Download  SHA-256: {downloadedChecksum}");
+
         // Compare
         bool passed = originalSize == downloadedSize && 
                      string.Equals(originalChecksum, downloadedChecksum, System.StringComparison.OrdinalIgnoreCase);

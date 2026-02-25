@@ -27,6 +27,10 @@ export class VerificationModule {
     const downloadedChecksum =
       await this.fileManager.calculateChecksum(downloadedPath);
 
+    // Log hash values
+    console.log(`  Original  SHA-256: ${originalChecksum}`);
+    console.log(`  Download  SHA-256: ${downloadedChecksum}`);
+
     // Compare
     const passed =
       originalSize === downloadedSize &&

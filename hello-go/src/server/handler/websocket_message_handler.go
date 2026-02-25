@@ -104,10 +104,7 @@ func (h *WebSocketMessageHandler) handleStop(conn *websocket.Conn, data *WebSock
 		h.sendJSON(conn, response)
 		logger.Debug(fmt.Sprintf("Stream finalized: %s", streamID))
 
-		// Unregister stream from client
-		h.clientsMutex.Lock()
-		h.clients[conn] = ""
-		h.clientsMutex.Unlock()
+		// Don't unregister stream from client - client may download after upload on same connection
 	} else {
 		h.sendError(conn, fmt.Sprintf("Failed to finalize stream: %s", streamID))
 	}

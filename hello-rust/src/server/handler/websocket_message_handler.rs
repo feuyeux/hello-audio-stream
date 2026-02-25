@@ -168,8 +168,7 @@ impl WebSocketMessageHandler {
             Self::send_json(websocket, clients, client_id, &response);
             println!("Stream finalized: {}", stream_id);
 
-            // Unregister stream from client
-            clients.lock().unwrap().insert(client_id, String::new());
+            // Don't unregister stream from client - client may download after upload on same connection
         } else {
             Self::send_error(
                 websocket,

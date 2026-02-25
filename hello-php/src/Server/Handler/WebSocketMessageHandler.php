@@ -183,8 +183,7 @@ class WebSocketMessageHandler
             $this->sendMessage($conn, $response);
             Logger::info("Stream finalized: {$streamId}");
 
-            // Unregister stream from client
-            $this->unregisterStream($conn);
+            // Don't unregister stream from client - client may download after upload on same connection
         } else {
             $this->sendError($conn, "Failed to finalize stream: {$streamId}");
         }

@@ -176,7 +176,7 @@ export class WebSocketMessageHandler {
     if (await this.streamManager.finalizeStream(streamId)) {
       console.log(`Stream stopped: ${streamId} for connection: ${ws.connectionId}`);
       this.sendResponse(ws, WebSocketMessage.stopped(streamId, "Stream stopped"));
-      ws.streamId = null;
+      // Don't clear ws.streamId - client may download after upload on same connection
     } else {
       console.error(`Failed to finalize stream: ${streamId}`);
       this.sendErrorResponse(ws, "Failed to finalize stream");
